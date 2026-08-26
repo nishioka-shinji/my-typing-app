@@ -1,0 +1,50 @@
+/*
+ * デザイントークン専用ファイル（DECISIONS §3）。
+ * ここにはカラートークン・タイポグラフィ変数・最小限のリセットのみを書く。
+ * コンポーネント/画面固有のスタイルは各コンポーネントの同居 .css に書くこと。
+ * このファイルは t01 で確定し、以後は原則追記のみ。
+ */
+
+:root {
+  /* カラートークン (design.md §10.1) */
+  --bg: #0d1117; /* 背景 */
+  --bg-elevated: #161b22; /* パネル */
+  --border: #30363d;
+  --text: #c9d1d9; /* 未入力の文字 */
+  --text-dim: #6e7681; /* 補助テキスト */
+  --text-done: #3fb950; /* 確定済みの文字（緑） */
+  --cursor: #58a6ff; /* 現在位置 */
+  --error: #f85149; /* ミス */
+  --accent: #d29922; /* 弱点・警告 */
+
+  /* 運指カラー (design.md §3.5) */
+  --finger-l-pinky: #f97583;
+  --finger-l-ring: #ffab70;
+  --finger-l-middle: #ffea7f;
+  --finger-l-index: #85e89d;
+  --finger-r-index: #79b8ff;
+  --finger-r-middle: #b392f0;
+  --finger-r-ring: #d2a8ff;
+  --finger-r-pinky: #f692ce;
+  --finger-thumb: #8b949e;
+
+  /* タイポグラフィ (design.md §10.2) */
+  --font-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, monospace;
+  --font-size-drill: 32px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background-color: var(--bg);
+  color: var(--text);
+  font-family: var(--font-mono);
+}
