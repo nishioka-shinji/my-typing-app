@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createInitialAppData, type AppData, type SessionRecord, BACKUP_STORAGE_KEY, STORAGE_KEY } from './schema';
-import { loadAppData, saveAppData, resetAppData, type StorageLike } from './storage';
+import { loadAppData, saveAppData, resetAppData, MAX_SESSIONS, type StorageLike } from './storage';
 
 /** インメモリの StorageLike フェイク。テストから中身を検証できるよう Map も返す。 */
 function createMemoryStorage(initial: Record<string, string> = {}): {
@@ -20,7 +20,7 @@ function createMemoryStorage(initial: Record<string, string> = {}): {
   return { storage, raw };
 }
 
-/** setItem が常に例外を投げるフェイク */
+/** getItem/setItem/removeItem のすべてが常に例外を投げるフェイク */
 function createAlwaysThrowingStorage(): StorageLike {
   return {
     getItem: () => {
@@ -168,6 +168,76 @@ describe('loadAppData', () => {
     expect(() => loadAppData(storage)).not.toThrow();
     expect(loadAppData(storage)).toEqual(createInitialAppData());
   });
+
+  it('保存データの sessions が 20 件を超えている場合、読み込み時点で新しい順に 20 件へ丸める', () => {
+    // saveAppData を経由せず、直接 21 件入った blob を置くことで load 側の丸めだけを検証する。
+    const sessions = Array.from({ length: 21 }, (_, i) => fakeSession(`s${i}`));
+    const original = { ...createInitialAppData(), sessions };
+    const { storage } = createMemoryStorage({ [STORAGE_KEY]: JSON.stringify(original) });
+
+    const result = loadAppData(storage);
+
+    expect(result.sessions).toHaveLength(MAX_SESSIONS);
+    expect(result.sessions).toEqual(sessions.slice(0, MAX_SESSIONS));
+  });
+
+  it('sessions の要素が SessionRecord の形をしていない場合、その要素だけを除外する（丸ごと初期化はしない）', () => {
+    const original = {
+      schemaVersion: 1,
+      sessions: [fakeSession('valid'), {}, { id: 'x' }, null, 42, { ...fakeSession('bad-keystats'), keyStats: 'not-an-object' }],
+    };
+    const { storage } = createMemoryStorage({ [STORAGE_KEY]: JSON.stringify(original) });
+
+    const result = loadAppData(storage);
+
+    expect(result.sessions).toEqual([fakeSession('valid')]);
+  });
+
+  it('aggregateKeyStats の値が KeyStat の形をしていないエントリは除外する', () => {
+    const original = {
+      schemaVersion: 1,
+      aggregateKeyStats: {
+        a: { attempts: 5, misses: 1, totalLatencyMs: 100 },
+        b: 'oops',
+        c: null,
+      },
+    };
+    const { storage } = createMemoryStorage({ [STORAGE_KEY]: JSON.stringify(original) });
+
+    const result = loadAppData(storage);
+
+    expect(result.aggregateKeyStats).toEqual({ a: { attempts: 5, misses: 1, totalLatencyMs: 100 } });
+  });
+
+  it('settings に未知キーや範囲外の値が混ざっていても既定値へフォールバックし、未知キーは残さない', () => {
+    const original = {
+      schemaVersion: 1,
+      settings: { questionCount: 9999, guideMode: 'bogus', evil: true, showKeyboard: 'yes' },
+    };
+    const { storage } = createMemoryStorage({ [STORAGE_KEY]: JSON.stringify(original) });
+
+    const result = loadAppData(storage);
+
+    expect(result.settings).toEqual(createInitialAppData().settings);
+    expect(result.settings).not.toHaveProperty('evil');
+  });
+
+  it('totals に型不正な値や未知キーが混ざっていても該当フィールドのみ初期値へフォールバックする', () => {
+    const original = {
+      schemaVersion: 1,
+      totals: { streakDays: 'many', totalKeystrokes: 42, extra: 1 },
+    };
+    const { storage } = createMemoryStorage({ [STORAGE_KEY]: JSON.stringify(original) });
+
+    const result = loadAppData(storage);
+
+    expect(result.totals).toEqual({
+      totalKeystrokes: 42,
+      totalTimeMs: 0,
+      streakDays: 0,
+      lastPlayedDate: '',
+    });
+  });
 });
 
 describe('saveAppData / loadAppData のラウンドトリップ', () => {
@@ -184,32 +254,47 @@ describe('saveAppData / loadAppData のラウンドトリップ', () => {
       sessions: [fakeSession('a'), fakeSession('b')],
     };
 
-    expect(saveAppData(data, storage)).toBe(true);
+    expect(saveAppData(data, storage)).toBe('ok');
     expect(loadAppData(storage)).toEqual(data);
   });
 
-  it('sessions が 20 件を超える場合、保存時に新しい順で 20 件へ丸められる', () => {
+  it.each([
+    [20, 20],
+    [21, 20],
+    [25, 20],
+  ])('sessions %d 件を保存すると新しい順で %d 件へ丸められる', (inputCount, expectedCount) => {
     const { storage } = createMemoryStorage();
-    const sessions = Array.from({ length: 25 }, (_, i) => fakeSession(`s${i}`));
+    const sessions = Array.from({ length: inputCount }, (_, i) => fakeSession(`s${i}`));
     const data: AppData = { ...createInitialAppData(), sessions };
 
-    expect(saveAppData(data, storage)).toBe(true);
+    expect(saveAppData(data, storage)).toBe('ok');
     const loaded = loadAppData(storage);
 
-    expect(loaded.sessions).toHaveLength(20);
-    expect(loaded.sessions).toEqual(sessions.slice(0, 20));
+    expect(loaded.sessions).toHaveLength(expectedCount);
+    expect(loaded.sessions).toEqual(sessions.slice(0, expectedCount));
   });
 });
 
-describe('saveAppData の容量超過フォールバック', () => {
-  it('setItem が QuotaExceededError を投げる場合、sessions を削って再試行し、最終的に保存できる', () => {
+describe('saveAppData の異常系', () => {
+  it('data.sessions が配列でなくても例外を投げず、sessions を空配列として保存する', () => {
+    const { storage } = createMemoryStorage();
+    const broken = { ...createInitialAppData(), sessions: 'not-an-array' } as unknown as AppData;
+
+    expect(() => saveAppData(broken, storage)).not.toThrow();
+    const result = saveAppData(broken, storage);
+
+    expect(result).toBe('ok');
+    expect(loadAppData(storage).sessions).toEqual([]);
+  });
+
+  it('setItem が QuotaExceededError を投げる場合、sessions を削って再試行し degraded で保存できる', () => {
     const { storage, raw } = createQuotaLimitedStorage(5);
     const sessions = Array.from({ length: 20 }, (_, i) => fakeSession(`s${i}`));
     const data: AppData = { ...createInitialAppData(), sessions };
 
     const result = saveAppData(data, storage);
 
-    expect(result).toBe(true);
+    expect(result).toBe('degraded');
     const savedRaw = raw.get(STORAGE_KEY);
     expect(savedRaw).toBeDefined();
     const saved = JSON.parse(savedRaw!) as AppData;
@@ -217,17 +302,17 @@ describe('saveAppData の容量超過フォールバック', () => {
     expect(saved.sessions).toEqual(sessions.slice(0, 5));
   });
 
-  it('setItem が常に throw する場合、例外を投げず false を返す', () => {
+  it('setItem が常に throw する場合、例外を投げず failed を返す', () => {
     const storage = createAlwaysThrowingStorage();
     const data = createInitialAppData();
 
     expect(() => saveAppData(data, storage)).not.toThrow();
-    expect(saveAppData(data, storage)).toBe(false);
+    expect(saveAppData(data, storage)).toBe('failed');
   });
 
-  it('localStorage が存在しない環境でも例外を投げず false を返す', () => {
+  it('localStorage が存在しない環境でも例外を投げず failed を返す', () => {
     expect(() => saveAppData(createInitialAppData())).not.toThrow();
-    expect(saveAppData(createInitialAppData())).toBe(false);
+    expect(saveAppData(createInitialAppData())).toBe('failed');
   });
 });
 
@@ -240,6 +325,31 @@ describe('resetAppData', () => {
 
     expect(result).toEqual(createInitialAppData());
     expect(loadAppData(storage)).toEqual(createInitialAppData());
+  });
+
+  it('backup キーに退避された旧データも削除する', () => {
+    const badVersionData = { ...createInitialAppData(), schemaVersion: 99 };
+    const { storage, raw } = createMemoryStorage({ [STORAGE_KEY]: JSON.stringify(badVersionData) });
+    // schemaVersion 不一致の読み込みで backup キーへ退避させておく
+    loadAppData(storage);
+    expect(raw.has(BACKUP_STORAGE_KEY)).toBe(true);
+
+    resetAppData(storage);
+
+    expect(raw.has(BACKUP_STORAGE_KEY)).toBe(false);
+  });
+
+  it('removeItem が例外を投げる環境でも例外を外に投げず初期値を返す', () => {
+    const storage: StorageLike = {
+      getItem: () => null,
+      setItem: () => {},
+      removeItem: () => {
+        throw new Error('cannot remove');
+      },
+    };
+
+    expect(() => resetAppData(storage)).not.toThrow();
+    expect(resetAppData(storage)).toEqual(createInitialAppData());
   });
 
   it('保存に失敗する環境でも例外を投げず初期値を返す', () => {
