@@ -108,10 +108,22 @@ describe('judgePassed', () => {
     expect(judgePassed(0.98, 100, 0.96, 100)).toBe(true);
   });
 
-  it('浮動小数点誤差で基準値よりわずかに小さくなっても合格になる', () => {
-    // 96/100 は理論上 0.96 だが、除算経由の値は丸め誤差を含み得る。
-    const accuracy = calcAccuracy(96, 4);
-    expect(judgePassed(accuracy, 100, 0.96, 100)).toBe(true);
+  it('KPM が理論上ちょうど基準値なのに丸め誤差で下回る場合も合格になる（EPSILON の回帰テスト）', () => {
+    // calcAccuracy(96, 4) は単一除算のため 96/100 === 0.96 が厳密に成り立ち、丸め誤差は
+    // 出ない。丸め誤差が実際に発生するのは 2 段除算の calcKpm 側（correctCount / (durationMs / 60000)）。
+    // 23 打鍵 / 23000ms はちょうど KPM 60 のはずだが、浮動小数点演算では 60 をわずかに下回る
+    // 値になる。EPSILON を外すとこのケースが誤って不合格になるため、EPSILON の必要性を
+    // 直接固定する回帰テストとして KPM 側の実ケースを使う。
+    const kpm = calcKpm(23, 23000);
+    expect(kpm < 60).toBe(true); // 前提: 素の値は 60 をわずかに下回っている
+    expect(judgePassed(1, kpm, 0.97, 60)).toBe(true);
+  });
+
+  it('誤差の範囲を超える実質的な未達は EPSILON があっても不合格のまま', () => {
+    // EPSILON(1e-9) は浮動小数点の丸め誤差だけを吸収する設計であり、
+    // 実質的な未達（0.01 オーダーの差）まで誤って合格にはしない。
+    expect(judgePassed(0.9599, 100, 0.96, 100)).toBe(false);
+    expect(judgePassed(0.98, 99.99, 0.96, 100)).toBe(false);
   });
 
   it('正確率は基準を満たすが KPM が不足していれば不合格（AND 条件）', () => {
@@ -170,6 +182,17 @@ describe('summarizeSession', () => {
     const summary = summarizeSession(state, { passAccuracy: 0.9, passKpm: 10 });
     state.keyStats.a.misses = 999;
     expect(summary.keyStats.a.misses).toBe(0);
+  });
+
+  it("levelId: 'weakness' のセッションでも levelId と passed をそのまま算出する（レベル解放判定は行わない）", () => {
+    // summarizeSession はレベル解放を一切判断しない（責務は t10 の applySessionSummary）。
+    // ここでは「'weakness' でも指標上の合否は算出される」という契約のみを固定する。
+    // passed をレベル解放条件として使ってよいかどうかは呼び出し側の責務であり、
+    // design.md §3.6（弱点特訓はレベル解放判定に影響しない）は t10 側で担保する。
+    const state = buildState({ levelId: 'weakness' });
+    const summary = summarizeSession(state, { passAccuracy: 0.9, passKpm: 10 });
+    expect(summary.levelId).toBe('weakness');
+    expect(summary.passed).toBe(true);
   });
 });
 

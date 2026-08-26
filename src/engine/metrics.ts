@@ -97,6 +97,13 @@ export function judgePassed(
 /**
  * TypingState から SessionSummary を組み立てる。
  * keyStats は呼び出し元の state を汚染しないようディープコピーして返す。
+ *
+ * 契約: 返り値の `passed` はあくまで「指標上の合否」（正確率・KPM が基準を
+ * 満たすか）であり、「レベル解放の可否」ではない。`state.levelId === 'weakness'`
+ * （弱点特訓）のセッションでも `passed` は同じルールで算出されるが、
+ * design.md §3.6 のとおり弱点特訓はレベル解放判定に一切影響しないため、
+ * `levelId === 'weakness'` を理由に `passed` を無視するかどうかの判断は
+ * 呼び出し側（t10 の `applySessionSummary`）の責務とする。
  */
 export function summarizeSession(
   state: TypingState,
