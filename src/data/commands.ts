@@ -10,6 +10,9 @@ import type { DrillItem } from '../storage/schema';
  *   - ネットワーク越しの副作用: curl ... | sh / wget ... | bash など
  *   - 取り返しのつかない Git 操作: git push --force、git reset --hard、git clean -fd、
  *     git branch -D
+ *   - cp による無条件上書き（レビュー r1 minor-1 で追加。.env のような設定ファイルへ
+ *     -n/-i を付けずに cp すると既存の秘密情報を無警告で失うため、mv/リダイレクトの
+ *     上書き禁止と同じ性質の破壊的操作として扱う）
  *
  * 採用方向性: 読み取り系（ls/grep/find/cat/head/git log/git diff/git status）、
  * ローカル完結の編集（mkdir/touch/chmod +x）、ステージング／コミット操作
@@ -17,6 +20,11 @@ import type { DrillItem } from '../storage/schema';
  *
  * 設計書 §3.1 の例示コマンド（ls -la / cd ../src / grep -rn "foo" . / chmod +x run.sh /
  * git commit -m "fix: typo" / git rebase -i HEAD~3 / git push origin HEAD）は必ず含める。
+ *
+ * DECISIONS §5 は「'...' クオートと \ エスケープは Lv7/Lv8 で頻出するため Lv5 で
+ * 事前に単独練習させる」ことを根拠に Lv5 charset へ [ ] \ ' を追加した。この根拠を
+ * 実データで回収するため、[ ] \ ' を実際に使う安全なコマンドを最低 1 件ずつ含める
+ * （レビュー r1 minor-2。commands.test.ts で出現を保証する）。
  *
  * 除外基準の機械的な検証は commands.test.ts の禁止パターン正規表現テストで行う。
  */
@@ -44,7 +52,9 @@ export const SHELL_COMMANDS: DrillItem[] = [
   { text: 'touch .env.local', hint: '空の .env.local ファイルを作成する' },
   { text: 'chmod +x run.sh', hint: 'run.sh に実行権限を付与する' },
   { text: 'chmod 644 config.yml', hint: 'config.yml の権限を 644 に設定する' },
-  { text: 'cp .env.example .env', hint: 'サンプル設定ファイルを実際の設定ファイルとしてコピーする' },
+  // レビュー r1 minor-1: 'cp .env.example .env' は既存 .env を無警告で上書きするため、
+  // -n（no-clobber）付きの安全な形に差し替えた。件数は変えず 1 対 1 で置換する。
+  { text: 'cp -n .env.example .env', hint: '既存の .env を上書きしないよう安全にサンプル設定をコピーする' },
   { text: 'cp -r dist backup', hint: 'dist ディレクトリを backup へ再帰的にコピーする' },
   { text: 'which node', hint: 'node コマンドの実行パスを表示する' },
   { text: 'whoami', hint: '現在ログイン中のユーザー名を表示する' },
@@ -57,6 +67,11 @@ export const SHELL_COMMANDS: DrillItem[] = [
   { text: 'history | tail -20', hint: '直近 20 件のコマンド履歴を表示する' },
   { text: 'man grep', hint: 'grep コマンドのマニュアルを表示する' },
   { text: 'sort access.log | uniq -c', hint: 'access.log を集計してユニークな行の出現回数を数える' },
+  // レビュー r1 minor-2: DECISIONS §5 で Lv5 に追加した [ ] \ ' を Lv7/Lv8 の実データで
+  // 回収するための追加コマンド（それぞれ最低 1 件ずつ出現させる）。
+  { text: "find . -name '*.log'", hint: 'カレント以下から拡張子 log のファイルをシングルクオートのグロブパターンで探す' },
+  { text: 'ls src/[a-z]*.ts', hint: 'src 配下で小文字から始まる ts ファイルを角括弧のグロブパターンで一覧表示する' },
+  { text: 'touch note\\ draft.txt', hint: 'スペースを含むファイル名をバックスラッシュでエスケープして作成する' },
 ];
 
 export const GIT_COMMANDS: DrillItem[] = [
@@ -98,4 +113,6 @@ export const GIT_COMMANDS: DrillItem[] = [
   { text: 'git remote -v', hint: '登録済みリモートの一覧を表示する' },
   { text: 'git cherry-pick abc1234', hint: '指定したコミットを現在のブランチに取り込む' },
   { text: 'git config --list', hint: 'git の設定一覧を表示する' },
+  // レビュー r1 minor-2: DECISIONS §5 の ' (シングルクオート) を Git コマンド側でも回収する。
+  { text: "git log --pretty=format:'%h %s'", hint: 'コミットハッシュとメッセージだけを 1 行フォーマットで表示する' },
 ];

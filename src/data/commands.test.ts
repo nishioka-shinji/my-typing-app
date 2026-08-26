@@ -18,6 +18,13 @@ const FORBIDDEN_PATTERNS: Array<{ name: string; pattern: RegExp }> = [
   { name: 'git reset --hard', pattern: /git\s+reset[^|]*--hard/ },
   { name: 'git clean -fd', pattern: /git\s+clean[^|]*-f\s*d|git\s+clean[^|]*-d\s*f/ },
   { name: 'git branch -D', pattern: /git\s+branch[^|]*-D\b/ },
+  // レビュー r1 minor-1: 'cp .env.example .env' が既存 .env を無警告で上書きしていた。
+  // cp 自体は安全な用途（新規コピー先）もあるため、-n/-i の安全フラグが無いまま
+  // .env 系のドットファイルへコピーする形だけを狙い撃ちする。
+  {
+    name: 'cp による設定ファイルの無条件上書き (.env 等)',
+    pattern: /\bcp\s+(?!.*-[a-zA-Z]*[ni]\b)[^|]*\s\.env(\.[\w-]+)?(\s|$)/,
+  },
 ];
 
 function expectNoForbiddenCommand(items: { text: string }[]) {
@@ -118,5 +125,16 @@ describe('コマンド文字とレベル既習キーの整合性', () => {
     const unexpected = [...uncovered].filter((c) => !knownExceptions.has(c));
 
     expect(unexpected, `未知の未習得文字: ${JSON.stringify(unexpected)}`).toEqual([]);
+  });
+});
+
+describe('DECISIONS §5 で Lv5 に追加した記号の Lv7/Lv8 での回収確認', () => {
+  it('[ ] \\ \' がそれぞれ Lv7/Lv8 のコマンドに最低 1 件は出現する（レビュー r1 minor-2）', () => {
+    // DECISIONS §5:「'...' クオートと \ エスケープは Lv7/Lv8 で頻出するため、
+    // 到達前に単独練習を必ず 1 回踏ませる」という根拠が実データで回収されているかを保証する。
+    const joined = [...SHELL_COMMANDS, ...GIT_COMMANDS].map((c) => c.text).join('\n');
+    for (const char of ['[', ']', '\\', "'"]) {
+      expect(joined.includes(char), `"${char}" を含むコマンドが少なくとも 1 件存在する`).toBe(true);
+    }
   });
 });
