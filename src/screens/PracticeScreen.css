@@ -72,6 +72,16 @@
   min-width: 0;
 }
 
+/* セッション完了直後、DrillText がアンマウントされてから onFinish による画面遷移までの
+   短い間だけ表示するプレースホルダ（r1 レビュー minor-5 対応）。 */
+.practice__drill-complete {
+  margin: 0;
+  color: var(--text-done);
+  font-family: var(--font-mono);
+  font-size: 20px;
+  font-weight: 600;
+}
+
 .practice__overlay {
   position: absolute;
   inset: 0;

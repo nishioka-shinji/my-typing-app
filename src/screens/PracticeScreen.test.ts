@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   computeProgressLabel,
   resolveAlertKeyId,
+  resolveKeyboardVisible,
   resolveShowFingerGuide,
 } from './PracticeScreen';
 import {
@@ -78,6 +79,29 @@ describe('resolveShowFingerGuide（guideMode の実効表示 × 3 連続ミス�
 
   it("'auto' + レベル既定 'never' でも 3 連続ミスで強制表示になる", () => {
     expect(resolveShowFingerGuide('auto', 'never', 3)).toBe(true);
+  });
+});
+
+/**
+ * r1 レビュー minor-3 対応: settings.showKeyboard=false のときヘルプ強制介入
+ * （design.md §3.3）が完全に不可視になっていた問題を、3 連続ミス以上の間だけ
+ * Keyboard を強制表示する方式で解消した。ここではその判定ロジックを検証する。
+ */
+describe('resolveKeyboardVisible（showKeyboard=false でもヘルプ強制介入は表示する）', () => {
+  it('showKeyboard=true なら consecutiveMiss に関わらず常に表示', () => {
+    expect(resolveKeyboardVisible(true, 0)).toBe(true);
+    expect(resolveKeyboardVisible(true, 5)).toBe(true);
+  });
+
+  it('showKeyboard=false かつ consecutiveMiss が 2 以下なら非表示', () => {
+    expect(resolveKeyboardVisible(false, 0)).toBe(false);
+    expect(resolveKeyboardVisible(false, 1)).toBe(false);
+    expect(resolveKeyboardVisible(false, 2)).toBe(false);
+  });
+
+  it('showKeyboard=false でも consecutiveMiss >= 3 になった瞬間に強制表示される', () => {
+    expect(resolveKeyboardVisible(false, 3)).toBe(true);
+    expect(resolveKeyboardVisible(false, 10)).toBe(true);
   });
 });
 

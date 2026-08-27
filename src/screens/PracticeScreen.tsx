@@ -19,6 +19,21 @@
  *     アンマウントする（= PracticeScreen ごと key を変えて作り直す）側の責務とする）
  *
  * 参照元: docs/design.md §3.3 §3.4 §5.3 §9 §4 §10.3 §7.3 / 00-decisions.md §6 §9 §10
+ *
+ * r1 レビュー（review-r1.md）指摘への対応（r2）:
+ *   - minor-1: 中断ダイアログの開閉（showQuitConfirm の変化）のたびに画面側の
+ *     imeActive/capsLockOn も false へリセットする。useKeyboardInput 側は
+ *     enabled が false→true に戻ったタイミングでのみ内部 ref をリセットするため、
+ *     画面側もリセットを合わせないと「ダイアログ中に実際の状態が変わった」場合に
+ *     警告バナーが誤って残り続ける。
+ *   - minor-2: StatsBar.questionIndex は computeProgressLabel でクランプした値を渡す
+ *     （セッション完了直後に currentIndex が items.length に達し「21/20」と表示される
+ *     不整合を防ぐ。ヘッダー側は元々クランプ済み）。
+ *   - minor-3: settings.showKeyboard=false でも consecutiveMiss >= 3 の間はヘルプ強制
+ *     介入（design.md §3.3）を優先し、Keyboard を強制的に表示する
+ *     （guideMode の強制表示と同じ「強制介入はユーザー設定より優先する」方針で統一）。
+ *   - minor-5: セッション完了直後の 1 フレームで問題文欄が空になる見た目を、
+ *     プレースホルダ表示で埋める。
  */
 import { useCallback, useEffect, useLayoutEffect, useReducer, useRef, useState } from 'react';
 import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
@@ -113,6 +128,21 @@ export function computeProgressLabel(currentIndex: number, total: number): Progr
   return { current: clampedIndex + 1, total: safeTotal };
 }
 
+/**
+ * 画面内キーボードを表示するかどうかを解決する（r1 レビュー minor-3 対応）。
+ *
+ * design.md §3.3 の「同じ文字で 3 回連続ミス → 該当キーを強調点滅させ、運指ガイドを
+ * 自動表示（ヘルプ強制介入）」は、Keyboard コンポーネント自体が描画されていないと
+ * 一切ユーザーに届かない（alertKeyId の点滅も showFingerGuide の凡例も Keyboard の
+ * 内部でしか描画されないため）。ヘルプ強制介入は「詰まっているユーザーを助ける」機能の
+ * 根幹であり、guideMode の強制表示（shouldShowGuide の consecutiveMiss >= 3 分岐）と
+ * 同じ「ユーザー設定より優先する」方針を settings.showKeyboard にも適用する。
+ * consecutiveMiss が 0 に戻れば（正打鍵・問題送り）自動的に設定どおりの表示へ戻る。
+ */
+export function resolveKeyboardVisible(showKeyboardSetting: boolean, consecutiveMiss: number): boolean {
+  return showKeyboardSetting || consecutiveMiss >= 3;
+}
+
 export function PracticeScreen({ request, settings, onFinish, onQuit }: PracticeScreenProps) {
   const [state, dispatch] = useReducer(
     typingReducer,
@@ -143,6 +173,22 @@ export function PracticeScreen({ request, settings, onFinish, onQuit }: Practice
     }
   }, [showQuitConfirm]);
 
+  // r1 レビュー minor-1 対応: 中断ダイアログの開閉のたびに画面側の警告バナー state を
+  // false にリセットする。useKeyboardInput は enabled が false→true に戻った時にだけ
+  // 内部の capsLockOnRef/imeActiveRef を false にリセットする「変化検出」方式のため、
+  // ダイアログを開いている間（enabled=false・購読なし）に実際の CapsLock/IME 状態が
+  // 変わっても hook 側は気付けない。画面側の state だけリセットせずに残すと、
+  // 「ダイアログを閉じたのに古い警告が消えない」不整合が起こる（例: CapsLock ON で
+  // 警告表示 → ダイアログを開閉している間に OFF にする → 再購読後は
+  // hook 側 ref（false）と実際の状態（false）が一致するため onCapsLockChange が
+  // 呼ばれず、画面側の古い true が残り続ける）。ダイアログの開閉どちらのタイミングでも
+  // 一旦 false に戻しておけば、以後の最初の keydown で実際の状態に基づいて
+  // 正しく再検出される。
+  useEffect(() => {
+    setCapsLockOn(false);
+    setImeActive(false);
+  }, [showQuitConfirm]);
+
   // アンマウント時にミスフラッシュのタイマーを必ず解除する（t11 レビュー確定契約:
   // タイマー管理は呼び出し側=本画面の責務）。
   useEffect(() => {
@@ -163,6 +209,10 @@ export function PracticeScreen({ request, settings, onFinish, onQuit }: Practice
       // reducer は「押されたキー」を state に残さない（keyStats は期待文字でキーング
       // している）ため、「どのキーを実際に押し間違えたか」は dispatch 元にしか
       // 存在しない（t11 レビュー r2「t16 実装者への確定契約」2 節）。
+      // 注意（r1 レビュー nit-1）: この比較式は typingReducer.ts の isCorrect 判定式
+      // （現状は厳密な === 比較）と意図的に重複させている。reducer 側の比較規則
+      // （大文字小文字の扱い等）を将来変更する場合は、ここも同時に直さないと
+      // 「カーソルは進む/進まないが赤フラッシュだけ挙動がずれる」不整合が起きる。
       if (expected !== undefined && char !== expected) {
         const keyId = findKeyForChar(char)?.key.id ?? null;
         setMissKeyId(keyId);
@@ -250,6 +300,14 @@ export function PracticeScreen({ request, settings, onFinish, onQuit }: Practice
   const accuracy = calcAccuracy(state.correctCount, state.missCount);
   const kpm = calcKpm(state.correctCount, durationMs);
   const progress = computeProgressLabel(state.currentIndex, state.items.length);
+  // StatsBar は questionIndex（0-indexed）に +1 して表示する契約（StatsBar.tsx）。
+  // state.currentIndex をそのまま渡すと、最終問題クリア直後に currentIndex が
+  // items.length に達し「21/20」のような超過表示になる（r1 レビュー minor-2）。
+  // ヘッダーの progress.current と揃うよう、同じクランプ済みの値から 0-indexed に
+  // 戻して渡す。
+  const clampedQuestionIndex = progress.total > 0 ? progress.current - 1 : 0;
+
+  const keyboardVisible = resolveKeyboardVisible(settings.showKeyboard, state.consecutiveMiss);
 
   return (
     <div
@@ -279,8 +337,14 @@ export function PracticeScreen({ request, settings, onFinish, onQuit }: Practice
       )}
 
       <div className="practice__drill">
-        {current && (
+        {current ? (
           <DrillText text={current.text} cursor={state.cursor} hint={current.hint} missSeq={state.missCount} />
+        ) : (
+          // r1 レビュー minor-5 対応: 最終問題クリア後、NEXT_QUESTION により currentIndex が
+          // items.length に達すると current が undefined になり DrillText がアンムマウント
+          // される。onFinish が呼ばれ t18 が画面遷移するまでの間、枠だけが空になって
+          // 見えてしまうのを避けるためプレースホルダを表示する。
+          <p className="practice__drill-complete">完了しました</p>
         )}
       </div>
 
@@ -288,11 +352,11 @@ export function PracticeScreen({ request, settings, onFinish, onQuit }: Practice
         accuracy={accuracy}
         kpm={kpm}
         missCount={state.missCount}
-        questionIndex={state.currentIndex}
-        questionTotal={state.items.length}
+        questionIndex={clampedQuestionIndex}
+        questionTotal={progress.total}
       />
 
-      {settings.showKeyboard && (
+      {keyboardVisible && (
         <Keyboard
           nextChar={nextChar}
           missKeyId={missKeyId}
