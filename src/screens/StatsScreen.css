@@ -1,0 +1,236 @@
+/*
+ * StatsScreen 専用スタイル (docs/design.md §3.7 / §5.1)。
+ * theme.css の CSS 変数のみを参照する (00-decisions.md §3)。
+ * クラス名は .stats__ で prefix し、他画面/コンポーネントと衝突しないようにする。
+ *
+ * アクセシビリティ (CROSS_CUTTING #1 / design.md §4):
+ * 本文サイズのテキストには --text-dim を使わない（4.5:1 未満のため）。
+ * 本ファイルは常に --text（bg/bg-elevated いずれでも 11:1 以上）を本文色として使う。
+ *
+ * ヒートマップの配色は --error と --bg-elevated を color-mix() で混ぜた 4 段階
+ * （15% / 30% / 42% / 50%）。WCAG 相対輝度式で実際に計算し、どの段階も前景
+ * var(--text) との組み合わせで 4.5:1 を上回ることを確認済み（実測値は
+ * .claude/epics/typing-app/tasks/t17/report-r1.md 参照）。100% に近づくほど
+ * var(--text) とのコントラストが崩れる（実測 60%で4.34、100%で2.17）ため、
+ * 意図的に 50% を上限にして単一の前景色のみで全段階の可読性を担保している
+ * （前景色を段階ごとに切り替える設計は避けた）。
+ */
+
+.stats {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 16px;
+}
+
+.stats__header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.stats__back-button {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  color: var(--text);
+  background-color: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 6px 12px;
+  cursor: pointer;
+}
+
+.stats__back-button:hover {
+  border-color: var(--cursor);
+}
+
+.stats__back-button:focus-visible {
+  outline: 2px solid var(--cursor);
+  outline-offset: 2px;
+}
+
+.stats__title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.stats__empty-banner {
+  margin: 0;
+  padding: 12px 16px;
+  background-color: var(--bg-elevated);
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 14px;
+}
+
+.stats__section {
+  padding: 12px 16px;
+  background-color: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.stats__section-title {
+  margin: 0 0 8px;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: var(--text);
+}
+
+.stats__section-caption {
+  margin: 0 0 10px;
+  font-size: 12px;
+  color: var(--text);
+}
+
+.stats__section-empty {
+  margin: 0;
+  color: var(--text);
+  font-size: 13px;
+}
+
+.stats__charts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.stats__chart-block {
+  flex: 1 1 260px;
+  min-width: 220px;
+}
+
+.stats__chart-title {
+  margin: 0 0 4px;
+  font-size: 12px;
+  color: var(--text);
+}
+
+.stats__totals {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  font-size: 14px;
+  color: var(--text);
+}
+
+.stats__total-item strong {
+  color: var(--cursor);
+}
+
+.stats__table-wrap {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.stats__level-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  color: var(--text);
+}
+
+.stats__level-table th,
+.stats__level-table td {
+  padding: 6px 8px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.stats__level-table th {
+  font-weight: 700;
+  border-bottom: 2px solid var(--border);
+}
+
+.stats__level-table th:not(:first-child),
+.stats__level-table td:not(:first-child) {
+  text-align: right;
+}
+
+.stats__heatmap {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.stats__heatmap-row {
+  display: flex;
+  width: 100%;
+  gap: 4px;
+}
+
+.stats__heatmap-key {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  min-width: 0;
+  height: 40px;
+  padding: 2px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background-color: var(--bg);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  line-height: 1.2;
+  flex-basis: 0;
+}
+
+.stats__heatmap-label {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.stats__heatmap-value {
+  font-size: 9px;
+  color: var(--text);
+}
+
+/* Backspace/Tab/CapsLock/Enter/Shift/Space: 見た目の行幅を保つための空セル */
+.stats__heatmap-key--special {
+  background-color: transparent;
+  border-style: dotted;
+  color: var(--text);
+  opacity: 0.5;
+}
+
+/* 未試行: 色ではなく破線で「データなし」を示す（design.md §4: 色だけに依存しない） */
+.stats__heatmap-key--none {
+  background-color: var(--bg-elevated);
+  border-style: dashed;
+  color: var(--text);
+}
+
+.stats__heatmap-key--low {
+  background-color: color-mix(in srgb, var(--error) 15%, var(--bg-elevated));
+  color: var(--text);
+}
+
+.stats__heatmap-key--mid {
+  background-color: color-mix(in srgb, var(--error) 30%, var(--bg-elevated));
+  color: var(--text);
+}
+
+.stats__heatmap-key--high {
+  background-color: color-mix(in srgb, var(--error) 42%, var(--bg-elevated));
+  color: var(--text);
+}
+
+.stats__heatmap-key--severe {
+  background-color: color-mix(in srgb, var(--error) 50%, var(--bg-elevated));
+  color: var(--text);
+}
