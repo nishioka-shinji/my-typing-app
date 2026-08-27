@@ -4,6 +4,7 @@ import {
   formatAccuracy,
   formatDuration,
   formatKpm,
+  formatMissCount,
   getDisplayMissKeys,
   getUnlockMessage,
   isAccuracyAchieved,
@@ -86,6 +87,28 @@ describe('formatAccuracy / formatKpm', () => {
     expect(formatAccuracy(NaN)).not.toMatch(/NaN/);
     expect(formatKpm(NaN)).not.toMatch(/NaN/);
   });
+
+  it('0..1 の範囲外を 0..1 にクランプする（レビュー r1 nit-4 対応）', () => {
+    expect(formatAccuracy(-0.5)).toBe('0.0%');
+    expect(formatAccuracy(2)).toBe('100.0%');
+  });
+});
+
+describe('formatMissCount（レビュー r1 minor-3 対応）', () => {
+  it('非負整数をそのまま整形する', () => {
+    expect(formatMissCount(11)).toBe('11');
+    expect(formatMissCount(0)).toBe('0');
+  });
+
+  it('NaN/Infinity/負値を 0 として扱う', () => {
+    expect(formatMissCount(NaN)).toBe('0');
+    expect(formatMissCount(Infinity)).not.toMatch(/Infinity/);
+    expect(formatMissCount(-3)).toBe('0');
+  });
+
+  it('小数は丸める', () => {
+    expect(formatMissCount(3.7)).toBe('4');
+  });
 });
 
 describe('isAccuracyAchieved / isKpmAchieved', () => {
@@ -106,29 +129,49 @@ describe('isAccuracyAchieved / isKpmAchieved', () => {
 });
 
 describe('shouldShowNextLevelButton（design.md §3.6 の回帰テスト。最重要）', () => {
-  it('合格して次レベルが解放されたときは true', () => {
+  // 契約（レビュー r1 major-1 対応後）: 「次のレベルへ導線を出すか」の意思決定は
+  // 呼び出し側（t18）が onNextLevel の null/非 null で行う。本関数は
+  // (1) onNextLevel が null なら false、(2) levelId === 'weakness' なら
+  // onNextLevel の値に関わらず false、それ以外は true、の 2 段ガードのみを持つ。
+  // 「不合格」「Lv8合格で次が無い」は呼び出し側が onNextLevel に null を渡すことで
+  // 表現される（unlockedLevelId では判定しない）。
+
+  it('合格して次レベルが新規解放されたとき、onNextLevel が渡されていれば true', () => {
     const result = makeResult({ unlockedLevelId: 4 }, { passed: true, levelId: 3 });
     expect(shouldShowNextLevelButton(result, () => {})).toBe(true);
   });
 
-  it('不合格（unlockedLevelId が null）のときは false', () => {
+  it('不合格のとき、呼び出し側が onNextLevel に null を渡せば false', () => {
     const result = makeResult({ unlockedLevelId: null }, { passed: false, levelId: 3 });
-    expect(shouldShowNextLevelButton(result, () => {})).toBe(false);
+    expect(shouldShowNextLevelButton(result, null)).toBe(false);
   });
 
-  it('Lv8 合格（次のレベルが存在しないため unlockedLevelId が null）のときは false', () => {
+  it('Lv8 合格（次のレベルが存在しない）のとき、呼び出し側が onNextLevel に null を渡せば false', () => {
     const result = makeResult({ unlockedLevelId: null }, { passed: true, levelId: 8 });
-    expect(shouldShowNextLevelButton(result, () => {})).toBe(false);
+    expect(shouldShowNextLevelButton(result, null)).toBe(false);
   });
 
-  it('弱点特訓のときは onNextLevel が渡されていても常に false', () => {
+  it('弱点特訓のときは onNextLevel が渡されていても常に false（levelId ガードは絶対に外さない）', () => {
     const result = makeResult({ unlockedLevelId: null }, { passed: true, levelId: 'weakness' });
     expect(shouldShowNextLevelButton(result, () => {})).toBe(false);
+    // 異常な unlockedLevelId が紛れ込んでいても弱点特訓では常に false（多重防御）
+    const withStrayUnlock = makeResult({ unlockedLevelId: 4 }, { passed: true, levelId: 'weakness' });
+    expect(shouldShowNextLevelButton(withStrayUnlock, () => {})).toBe(false);
   });
 
   it('onNextLevel が null（呼び出し側が渡さない）なら常に false', () => {
     const result = makeResult({ unlockedLevelId: 4 }, { passed: true, levelId: 3 });
     expect(shouldShowNextLevelButton(result, null)).toBe(false);
+  });
+
+  // レビュー r1 major-1 の回帰テスト本体。
+  it('クリア済みレベルを復習で再合格したとき（unlockedLevelId は null）、onNextLevel が渡されていれば true', () => {
+    // Lv3 は以前から解放済みで今回は「再合格」なので、appDataUpdates.ts の実装上
+    // unlockedLevelId は null になる（appDataUpdates.test.ts:170 と同じ前提）。
+    // それでも呼び出し側が「次のレベルは既に解放済みなので遷移可能」と判断して
+    // 非 null の onNextLevel を渡した場合、ボタンは表示されなければならない。
+    const result = makeResult({ unlockedLevelId: null }, { passed: true, levelId: 3 });
+    expect(shouldShowNextLevelButton(result, () => {})).toBe(true);
   });
 });
 

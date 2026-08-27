@@ -10,10 +10,14 @@ import './ResultScreen.css';
  *
  * - `onNextLevel`: 呼び出し側が「次のレベルへ」導線を出すべきと判断したときだけ
  *   関数を渡し、出すべきでないとき（不合格・Lv8 合格で次が無い・弱点特訓）は
- *   `null` を渡す想定。ただし本コンポーネント側でも `shouldShowNextLevelButton`
- *   で `result.record.levelId === 'weakness'` / `result.unlockedLevelId === null`
- *   を独立に再チェックする（呼び出し側の渡し忘れに対する多重防御。design.md §3.6
- *   の「弱点特訓はレベル解放判定に影響しない」の回帰を画面側でも防ぐ）。
+ *   `null` を渡す想定。**非 null を渡せば（弱点特訓を除き）必ずボタンが表示される**
+ *   （レビュー r1 major-1 対応。以前は `unlockedLevelId === null` のときボタンが
+ *   握り潰されていたが、`unlockedLevelId` は「今回新規に解放されたか」を示す値であって
+ *   「次のレベルが存在するか」ではないため、これをボタン表示のガードに使うのは誤りだった）。
+ *   本コンポーネント側では `shouldShowNextLevelButton` で
+ *   `result.record.levelId === 'weakness'` のみを独立に再チェックする
+ *   （呼び出し側の渡し忘れに対する多重防御。design.md §3.6 の「弱点特訓はレベル解放
+ *   判定に影響しない」の回帰を画面側でも防ぐ）。
  */
 export interface ResultScreenProps {
   result: SessionResult;
@@ -53,15 +57,32 @@ export function formatDuration(durationMs: number): string {
   return `${minutes}m ${seconds}s`;
 }
 
-/** 正確率を "96.2%" 形式に整形する */
+/**
+ * 正確率を "96.2%" 形式に整形する。
+ * `calcAccuracy`（t05）は必ず 0..1 を返す契約だが、表示直前の最終防御として
+ * ここでも 0..1 にクランプする（レビュー r1 nit-4 対応: 万一 0..1 外の値が
+ * 渡っても "-50.0%" のような非現実的な表示を出さない）。
+ */
 export function formatAccuracy(accuracy: number): string {
   const safe = Number.isFinite(accuracy) ? accuracy : 0;
-  return `${(safe * 100).toFixed(1)}%`;
+  const clamped = Math.max(0, Math.min(1, safe));
+  return `${(clamped * 100).toFixed(1)}%`;
 }
 
 /** KPM を整数表示に丸める */
 export function formatKpm(kpm: number): string {
   const safe = Number.isFinite(kpm) ? kpm : 0;
+  return `${Math.round(safe)}`;
+}
+
+/**
+ * ミス回数を整数表示に整形する（レビュー r1 minor-3 対応）。
+ * `TypingState.missCount` / `KeyStat.misses` は reducer のインクリメント由来の
+ * 非負整数であり現状 NaN にはならないが、他の数値表示（正確率・KPM・時間）と
+ * 防御の一貫性を持たせるため、ここでも `Number.isFinite` ガード＋丸めを通す。
+ */
+export function formatMissCount(misses: number): string {
+  const safe = Number.isFinite(misses) && misses > 0 ? misses : 0;
   return `${Math.round(safe)}`;
 }
 
@@ -79,12 +100,22 @@ export function isKpmAchieved(kpm: number, passKpm: number): boolean {
  * 「次のレベルへ」ボタンを表示すべきかどうかの判定（design.md §3.6 の回帰テスト対象。
  * 合格 / 不合格 / Lv8 合格（次が無い）/ 弱点特訓 の 4 ケースを単体テストで固定する）。
  *
- * - `onNextLevel` が null（呼び出し側が渡さない）なら常に false。
+ * - `onNextLevel` が null（呼び出し側が「次のレベルへ渡すべきでない」と判断して
+ *   渡さない）なら常に false。呼び出し側の意思決定を尊重する。
  * - 弱点特訓（`levelId === 'weakness'`）は合否に関わらず常に false
  *   （design.md §3.6: 弱点特訓はレベル解放判定に影響しないため「次のレベルへ」という
- *   概念自体が存在しない）。
- * - `unlockedLevelId` が null（不合格、または Lv8 合格のように次のレベルが存在しない）
- *   なら false。
+ *   概念自体が存在しない。onNextLevel が非 null で渡されていても無視する多重防御）。
+ * - 上記 2 条件を満たさない限り true。
+ *
+ * レビュー r1 major-1 対応: 以前は `result.unlockedLevelId === null` も false 条件に
+ * 含めていたが、`unlockedLevelId` は「このセッションで**新規に**解放されたレベル」
+ * （`src/hooks/appDataUpdates.ts` 参照）であり「次のレベルが存在するか」ではない。
+ * そのため「クリア済みレベルを復習で再合格した」ケース（`passed: true` かつ
+ * 次レベルは既に unlocked 済みなので `unlockedLevelId` は null）で、呼び出し側が
+ * 遷移可能と判断して非 null の `onNextLevel` を渡していてもボタンが握り潰されて
+ * しまっていた。`unlockedLevelId` は「解放されました」メッセージの表示条件
+ * （`getUnlockMessage`）にのみ使い、ボタン表示の可否には使わない
+ * （「関数を渡した＝出す」という呼び出し側の意思決定に画面側は従う）。
  */
 export function shouldShowNextLevelButton(
   result: SessionResult,
@@ -96,7 +127,7 @@ export function shouldShowNextLevelButton(
   if (result.record.levelId === 'weakness') {
     return false;
   }
-  return result.unlockedLevelId !== null;
+  return true;
 }
 
 /**
@@ -172,16 +203,14 @@ export function ResultScreen({ result, onRetry, onNextLevel, onHome }: ResultScr
         >
           {/*
             "PASSED"/"FAILED" をタイプライター風に表示する（design.md §10.3）。
-            演出は CSS アニメーションのみで完結させ、ボタン等の操作性には一切
-            影響しない（overlay や pointer-events の変更をしていないため、
-            演出中でも下のボタンは押せる）。両テキストとも 8 文字で揃えてあるため
-            steps(8, end) で崩れずに表示できる。
+            演出は `.resultscreen__badge-text::after` の CSS アニメーション
+            （テキストを覆う帯を右端から幅 100%→0% に縮めるマスク方式。詳細は
+            ResultScreen.css のコメント参照。レビュー r1 minor-2 対応）のみで完結し、
+            ボタン等の操作性には一切影響しない（overlay や pointer-events の変更を
+            していないため、演出中でも下のボタンは押せる）。
           */}
-          <span
-            className="resultscreen__badge-text"
-            aria-label={record.passed ? 'PASSED' : 'FAILED'}
-          >
-            {record.passed ? '✓ PASSED' : '✗ FAILED'}
+          <span className="resultscreen__badge-text">
+            <span aria-hidden="true">{record.passed ? '✓' : '✗'}</span> {record.passed ? 'PASSED' : 'FAILED'}
           </span>
         </div>
 
@@ -201,11 +230,9 @@ export function ResultScreen({ result, onRetry, onNextLevel, onHome }: ResultScr
             <dd>
               <span className="resultscreen__metric-value">{formatAccuracy(record.accuracy)}</span>
               <span className="resultscreen__metric-baseline">(基準 {formatAccuracy(passAccuracy)})</span>
-              <span
-                className={`resultscreen__mark resultscreen__mark--${accuracyAchieved ? 'ok' : 'ng'}`}
-                aria-label={accuracyAchieved ? '達成' : '未達'}
-              >
-                {accuracyAchieved ? '✓' : '✗'}
+              <span className={`resultscreen__mark resultscreen__mark--${accuracyAchieved ? 'ok' : 'ng'}`}>
+                <span aria-hidden="true">{accuracyAchieved ? '✓' : '✗'}</span>
+                <span className="resultscreen__visually-hidden">{accuracyAchieved ? '達成' : '未達'}</span>
               </span>
             </dd>
           </div>
@@ -214,11 +241,9 @@ export function ResultScreen({ result, onRetry, onNextLevel, onHome }: ResultScr
             <dd>
               <span className="resultscreen__metric-value">{formatKpm(record.kpm)}</span>
               <span className="resultscreen__metric-baseline">(基準 {formatKpm(passKpm)})</span>
-              <span
-                className={`resultscreen__mark resultscreen__mark--${kpmAchieved ? 'ok' : 'ng'}`}
-                aria-label={kpmAchieved ? '達成' : '未達'}
-              >
-                {kpmAchieved ? '✓' : '✗'}
+              <span className={`resultscreen__mark resultscreen__mark--${kpmAchieved ? 'ok' : 'ng'}`}>
+                <span aria-hidden="true">{kpmAchieved ? '✓' : '✗'}</span>
+                <span className="resultscreen__visually-hidden">{kpmAchieved ? '達成' : '未達'}</span>
               </span>
             </dd>
           </div>
@@ -226,7 +251,7 @@ export function ResultScreen({ result, onRetry, onNextLevel, onHome }: ResultScr
 
         <p className="resultscreen__summary-line">
           <span>時間 {formatDuration(record.durationMs)}</span>
-          <span className="resultscreen__summary-sep">ミス {record.missCount} 回</span>
+          <span className="resultscreen__summary-sep">ミス {formatMissCount(record.missCount)} 回</span>
         </p>
 
         <div className="resultscreen__miss-keys">
@@ -244,7 +269,7 @@ export function ResultScreen({ result, onRetry, onNextLevel, onHome }: ResultScr
                       style={{ width: `${missBarWidthPercent(entry.misses, maxMisses)}%` }}
                     />
                   </span>
-                  <span className="resultscreen__miss-key-count">{entry.misses}回</span>
+                  <span className="resultscreen__miss-key-count">{formatMissCount(entry.misses)}回</span>
                 </li>
               ))}
             </ul>

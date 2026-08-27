@@ -53,24 +53,11 @@
 }
 
 .resultscreen__badge-text {
+  position: relative;
   display: inline-block;
-  overflow: hidden;
   white-space: nowrap;
-  width: 8ch;
   font-size: 24px;
   font-weight: 700;
-  border-right: 2px solid transparent;
-  /*
-   * "✓ PASSED" / "✗ FAILED" をタイプライター風に表示する演出 (design.md §10.3)。
-   * design.md §10.3 は「アニメーションは 150ms 以内」とする一方、タイプライター
-   * 演出そのものは設計書が明示的に長い演出として求めているため対象外とする
-   * （§10.3 のフィードバック表参照）。演出はこの span の CSS アニメーションのみで
-   * 完結し、ボタン等の操作性には一切影響しない（pointer-events やオーバーレイを
-   * 一切使っていないため、演出中でも下のボタンを押せる）。
-   */
-  animation:
-    resultscreen-typewriter 640ms steps(8, end) 1,
-    resultscreen-caret-blink 480ms steps(1, end) 3;
 }
 
 .resultscreen__badge--passed .resultscreen__badge-text {
@@ -81,30 +68,63 @@
   color: var(--error);
 }
 
-@keyframes resultscreen-typewriter {
+/*
+ * "✓ PASSED" / "✗ FAILED" をタイプライター風に表示する演出 (design.md §10.3)。
+ * design.md §10.3 は「アニメーションは 150ms 以内」とする一方、タイプライター演出
+ * そのものは設計書が明示的に長い演出として求めているため対象外とする
+ * （§10.3 のフィードバック表参照）。演出はこの疑似要素の CSS アニメーションのみで
+ * 完結し、ボタン等の操作性には一切影響しない（pointer-events やオーバーレイを
+ * 一切使っていないため、演出中でも下のボタンを押せる）。
+ *
+ * レビュー r1 minor-2 対応: 当初は `width: 0 -> 8ch` でテキスト自体の幅を広げる方式
+ * だったが、`ch` は等幅フォントの "0" の送り幅であり ✓(U+2713)/✗(U+2717) は等幅
+ * フォントに含まれず記号フォントへフォールバックしうるため、実際の送り幅が 1ch とは
+ * 限らず、環境によっては末尾の文字が `overflow: hidden` で恒久的に切り落とされる
+ * リスクがあった（逆に余裕を持たせて固定幅を広げると、今度は静止状態で中央揃えの
+ * バッジがテキストの実幅より広い箱になり、見た目が中央からずれる）。
+ * そこで「テキスト自体の幅」ではなく、テキストを覆う不透明な帯（背景色と同色の
+ * ::after 疑似要素）を右端に固定して幅 100%→0% に縮めるマスク方式に変更した。
+ * テキスト自身は常に自然な幅（intrinsic width）のまま `.resultscreen__badge` の
+ * `justify-content: center` で正しく中央揃えされ、マスクは常にテキストの実際の
+ * 描画幅（`100%`）を基準にするため、フォントや記号のフォールバック幅に関わらず
+ * 文字が欠けることも、静止状態で幅がずれることも起きない。
+ */
+.resultscreen__badge-text::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  background-color: var(--bg-elevated);
+  border-left: 2px solid currentColor;
+  animation:
+    resultscreen-typewriter-mask 640ms steps(8, end) forwards,
+    resultscreen-caret-blink 480ms steps(1, end) 3;
+}
+
+@keyframes resultscreen-typewriter-mask {
   from {
-    width: 0;
+    width: 100%;
   }
   to {
-    width: 8ch;
+    width: 0%;
   }
 }
 
 @keyframes resultscreen-caret-blink {
   0%,
   100% {
-    border-right-color: currentColor;
+    border-left-color: currentColor;
   }
   50% {
-    border-right-color: transparent;
+    border-left-color: transparent;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .resultscreen__badge-text {
-    width: 8ch;
-    animation: none;
-    border-right-color: transparent;
+  .resultscreen__badge-text::after {
+    display: none;
   }
 }
 
@@ -177,6 +197,25 @@
 
 .resultscreen__mark--ng {
   color: var(--error);
+}
+
+/*
+ * 支援技術向けの視覚的に隠れたテキスト（一般的な sr-only パターン）。
+ * レビュー r1 nit-5 対応: `aria-label` は role の無い `<span>` では支援技術に
+ * 確実には公開されないため（ARIA in HTML）、`✓`/`✗` の記号は `aria-hidden` で
+ * 隠し、代わりにこのクラスを付けた実テキスト（「達成」「未達」）を可視要素の
+ * すぐ隣に置いて意味を伝える。
+ */
+.resultscreen__visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .resultscreen__summary-line {
