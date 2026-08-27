@@ -25,6 +25,30 @@ function keyStat(overrides: Partial<KeyStat> = {}): KeyStat {
   return { attempts: 0, misses: 0, totalLatencyMs: 0, ...overrides };
 }
 
+/**
+ * `process.env.TZ` を一時的に差し替えて `fn` を実行し、必ず元の状態へ戻す。
+ *
+ * 単純に `process.env.TZ = originalTZ` で戻すと、TZ が「未設定」だった環境では
+ * `originalTZ` が `undefined` になり、代入によって文字列 `"undefined"` が書き込まれてしまう
+ * （`process.env` へのプロパティ代入は値を必ず文字列化するため）。これは他のテスト
+ * ファイル・後続タスクの `npm test` 実行順に依存する flaky を生む重大な副作用のため、
+ * 元が未設定だった場合は `delete` で確実に「未設定」へ戻す。
+ */
+function withTZ(tz: string, fn: () => void): void {
+  const hadOwnTZ = Object.prototype.hasOwnProperty.call(process.env, 'TZ');
+  const originalTZ = process.env.TZ;
+  process.env.TZ = tz;
+  try {
+    fn();
+  } finally {
+    if (hadOwnTZ) {
+      process.env.TZ = originalTZ;
+    } else {
+      delete process.env.TZ;
+    }
+  }
+}
+
 describe('formatLocalDate', () => {
   it('YYYY-MM-DD 形式（ゼロ埋め）でローカル日付を返す', () => {
     expect(formatLocalDate(new Date(2026, 2, 1))).toBe('2026-03-01'); // 月は 0-indexed
@@ -65,15 +89,19 @@ describe('computeStreak', () => {
     expect(computeStreak('2026-02-28', '2026-03-02', 3)).toBe(1);
   });
 
-  it('DST（サマータイム）切り替えをまたいでも暦日差 1 は +1 になる', () => {
-    // 米国東部標準時は 2026-03-08 未明に DST 開始（1 日が 23 時間になる）。
-    const originalTZ = process.env.TZ;
-    process.env.TZ = 'America/New_York';
-    try {
-      expect(computeStreak('2026-03-07', '2026-03-08', 5)).toBe(6);
-    } finally {
-      process.env.TZ = originalTZ;
-    }
+  it('DST 開始（春・1日が23時間になる境界）をまたいでも暦日差 1 は +1 になる', () => {
+    // 米国東部標準時は 2026-03-08 02:00 に DST 開始。したがって実際に 23 時間になる
+    // 対は 03-08 → 03-09（03-07 → 03-08 は境界を跨がずちょうど 24 時間なのでガードにならない）。
+    withTZ('America/New_York', () => {
+      expect(computeStreak('2026-03-08', '2026-03-09', 5)).toBe(6);
+    });
+  });
+
+  it('DST 終了（秋・1日が25時間になる境界）をまたいでも暦日差 1 は +1 になる', () => {
+    // 米国東部標準時は 2026-11-01 02:00 に DST 終了。01 → 02 が実際に 25 時間になる対。
+    withTZ('America/New_York', () => {
+      expect(computeStreak('2026-11-01', '2026-11-02', 5)).toBe(6);
+    });
   });
 });
 

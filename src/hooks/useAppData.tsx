@@ -58,7 +58,16 @@ export interface AppDataContextValue {
    * 通知するかどうかの判断は呼び出し側（t14 設定画面等）に委ねる。
    */
   saveStatus: SaveAppDataResult;
+  /**
+   * 契約: `updateSettings` と `recordSession` を同一 tick（同一イベントハンドラ内 /
+   * バッチ処理される同一レンダーサイクル内）で両方呼び出さないこと。
+   * どちらも内部的には「呼び出し時点の最新 state」を起点に新しい `AppData` を計算して
+   * `dispatch({ type: 'SET', data })` するため、同一 tick 内で両方呼ぶと React の
+   * バッチ更新により後勝ちの `SET` が先勝ちの変更を上書きし、片方の変更がサイレントに
+   * 消える。呼び出し側は必ず別のユーザー操作（別イベント）として順に呼び出すこと。
+   */
   updateSettings: (patch: Partial<Settings>) => void;
+  /** 契約は {@link AppDataContextValue.updateSettings} の JSDoc を参照。 */
   recordSession: (summary: SessionSummary) => RecordSessionResult;
   resetAll: () => void;
 }
