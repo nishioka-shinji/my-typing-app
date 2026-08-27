@@ -18,6 +18,15 @@ export interface UseKeyboardInputOptions {
   /**
    * keydown を購読する対象要素への ref。`window` ではなく要素で購読する
    * （design.md §9: 練習画面は `<div tabIndex={0}>` にフォーカスを当てる前提）。
+   *
+   * **重要な前提（呼び出し側 = t16 が必ず守ること）**: 対象要素は条件付きレンダー
+   * （`{isReady && <div ref={targetRef} ...>}` 等）にせず、マウント時から無条件で
+   * 存在させること。購読 effect は `targetRef.current` を実行時に一度読むだけで、
+   * ref オブジェクト自体の参照は不変なため `targetRef.current` が後から
+   * `null` → 要素 に変わっても effect は再実行されない（r1 レビュー minor 指摘）。
+   * 要素をどうしても条件付きにする場合は、その条件を `enabled` にも連動させること
+   * （`enabled` の変化なら effect が再実行され、そのタイミングで最新の
+   * `targetRef.current` を読み直す）。
    */
   targetRef: RefObject<HTMLElement | null>;
   /** false の間は購読しない（結果画面表示中など、誤入力を拾いたくない場面向け） */
@@ -70,6 +79,15 @@ export function useKeyboardInput({
     const target = targetRef.current;
     if (!enabled || !target) return undefined;
 
+    // 購読を開始するたびに「直前に通知した状態」をリセットする。CapsLock/IME の
+    // 通知は「現在の状態」ではなく「変化したこと」のエッジ検出でしかないため、
+    // enabled が false→true になった（= 呼び出し側が新しいセッションを始めた、
+    // 警告バナーの表示 state を作り直した）タイミングで hook 側の検出状態も
+    // 作り直さないと、2 回目以降のセッションで CapsLock/IME が ON のままでも
+    // 二度と通知されなくなる（r1 レビュー minor 指摘）。
+    capsLockOnRef.current = false;
+    imeActiveRef.current = false;
+
     function handleKeyDown(event: KeyboardEvent): void {
       // CapsLock は判定結果に関わらず毎回チェックする（ミス扱いにしない設定キーの
       // 押下でも CapsLock 状態自体は変わりうるため）。getModifierState が使えない
@@ -87,7 +105,10 @@ export function useKeyboardInput({
         event.preventDefault();
       }
 
-      const isImeActive = result.reason === 'ime';
+      // KeyEventClassification は action で判別可能なユニオンなので、'ignore' に
+      // 絞り込んでから reason を読む（絞り込まずに result.reason を読むと 'char'/'escape'
+      // には reason が無いため型検査を通らない）。
+      const isImeActive = result.action === 'ignore' && result.reason === 'ime';
       if (isImeActive !== imeActiveRef.current) {
         imeActiveRef.current = isImeActive;
         callbacksRef.current.onImeDetected?.(isImeActive);
@@ -102,8 +123,9 @@ export function useKeyboardInput({
         return;
       }
 
-      // result.action === 'char'（classifyKeyEvent の契約上、この分岐では char が必ず入る）
-      callbacksRef.current.onChar(result.char as string, Date.now());
+      // ここに到達するのは判別可能ユニオンにより action === 'char' のときだけなので、
+      // result.char は string に絞り込まれ、型アサーションは不要（r1 レビュー nit 対応）。
+      callbacksRef.current.onChar(result.char, Date.now());
     }
 
     target.addEventListener('keydown', handleKeyDown);
