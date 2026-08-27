@@ -1,0 +1,75 @@
+/*
+ * Chart 専用スタイル（DECISIONS §3: クラス名は .chart__ で prefix）。
+ */
+
+.chart {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  max-width: 480px;
+  font-family: var(--font-mono);
+}
+
+.chart__svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.chart__grid-line {
+  stroke: var(--border);
+  stroke-width: 1;
+}
+
+.chart__axis-label {
+  fill: var(--text);
+  font-size: 9px;
+  font-family: var(--font-mono);
+}
+
+.chart__line {
+  fill: none;
+  stroke-width: 2;
+}
+
+.chart__point {
+  stroke: none;
+}
+
+.chart__empty {
+  margin: 0;
+  color: var(--text);
+  font-size: 14px;
+}
+
+.chart__x-labels {
+  display: flex;
+  justify-content: space-between;
+  color: var(--text);
+  font-size: 10px;
+}
+
+.chart__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--text);
+  font-size: 12px;
+}
+
+.chart__legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.chart__legend-swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+}
