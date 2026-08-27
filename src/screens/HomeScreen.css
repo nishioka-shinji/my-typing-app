@@ -193,3 +193,16 @@
   cursor: not-allowed;
   opacity: 0.7;
 }
+
+/*
+ * キーボード操作時のフォーカスリング（レビュー指摘 nit-5 対応）。
+ * ブラウザ既定の outline を消していなかったため機能上の問題は無かったが、
+ * t15 (ResultScreen) が `outline: 2px solid var(--cursor)` を明示しているのに合わせ、
+ * 画面間で見た目を揃える。
+ */
+.home__nav-button:focus-visible,
+.home__level-button:focus-visible,
+.home__weakness-button:focus-visible {
+  outline: 2px solid var(--cursor);
+  outline-offset: 2px;
+}

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  formatBestRecord,
   formatKeystrokeCount,
   formatTotalTime,
   getLevelDisplayState,
@@ -80,6 +81,12 @@ describe('formatTotalTime', () => {
   it('59分は "59m"（繰り上がらない境界）', () => {
     expect(formatTotalTime(59 * 60 * 1000)).toBe('59m');
   });
+
+  it('NaN / Infinity は "0m" にフォールバックする（レビュー指摘 minor-3 対応）', () => {
+    expect(formatTotalTime(NaN)).toBe('0m');
+    expect(formatTotalTime(Infinity)).toBe('0m');
+    expect(formatTotalTime(-Infinity)).toBe('0m');
+  });
 });
 
 describe('formatKeystrokeCount', () => {
@@ -95,6 +102,29 @@ describe('formatKeystrokeCount', () => {
 
   it('ちょうど1000は "1,000"', () => {
     expect(formatKeystrokeCount(1000)).toBe('1,000');
+  });
+
+  it('NaN / Infinity は "0" にフォールバックする（レビュー指摘 minor-3 対応）', () => {
+    expect(formatKeystrokeCount(NaN)).toBe('0');
+    expect(formatKeystrokeCount(Infinity)).toBe('0');
+  });
+});
+
+describe('formatBestRecord', () => {
+  it('正確率・KPM をどちらも整数に丸めて表示する（レビュー指摘 major-1 対応）', () => {
+    // correct=160 miss=4 durationMs=95432 から算出される実データ相当の小数 KPM。
+    const progress = makeProgress({ cleared: true, unlocked: true, bestAccuracy: 0.9756, bestKpm: 100.59518819683124 });
+    expect(formatBestRecord(progress)).toBe('98% / 101 KPM');
+  });
+
+  it('bestKpm がちょうど整数のときも壊れない', () => {
+    const progress = makeProgress({ cleared: true, unlocked: true, bestAccuracy: 0.98, bestKpm: 82 });
+    expect(formatBestRecord(progress)).toBe('98% / 82 KPM');
+  });
+
+  it('design.md §5.2 の例（98% / 82 KPM）を再現する', () => {
+    const progress = makeProgress({ cleared: true, unlocked: true, bestAccuracy: 0.98, bestKpm: 82 });
+    expect(formatBestRecord(progress)).toBe('98% / 82 KPM');
   });
 });
 

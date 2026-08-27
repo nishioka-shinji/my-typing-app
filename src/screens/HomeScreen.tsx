@@ -18,6 +18,7 @@
  *     呼び出し側の責務 / t07: generateWeaknessItems の charset は解放済みレベルの和集合）
  */
 
+import { useMemo } from 'react';
 import type {
   AppData,
   LevelDef,
@@ -64,8 +65,18 @@ export function getLevelDisplayState(
   return selectable ? 'active' : 'locked';
 }
 
-/** 総打鍵数をカンマ区切りに整形する（例: 12480 -> "12,480"）。 */
+/**
+ * 総打鍵数をカンマ区切りに整形する（例: 12480 -> "12,480"）。
+ * `Number.isFinite` で NaN / Infinity を弾く（レビュー指摘 minor-3 対応）。
+ * `Math.max(0, NaN)` は NaN を返し負値ガードが効かないため、先に有限値かどうかを見る。
+ * 現状 storage 層で NaN/Infinity が保存値に混入する経路は無い
+ * （`JSON.stringify(NaN)` は `null` になり型チェックで弾かれる）が、
+ * `ResultScreen` 側の防御水準（`Number.isFinite` ガード）に合わせておく。
+ */
 export function formatKeystrokeCount(totalKeystrokes: number): string {
+  if (!Number.isFinite(totalKeystrokes)) {
+    return '0';
+  }
   const normalized = Math.max(0, Math.floor(totalKeystrokes));
   return normalized.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 }
@@ -75,8 +86,13 @@ export function formatKeystrokeCount(totalKeystrokes: number): string {
  * - 1 時間未満は分のみ（例: 0 -> "0m"、59分 -> "59m"）。
  * - 1 時間以上は時＋分（60分ちょうど -> "1h 0m"）。24 時間を超えても単純に積み上げる
  *   （日をまたいでも h をリセットしない。総練習時間の累積値のため）。
+ * NaN / Infinity は 0 扱いにフォールバックする（レビュー指摘 minor-3 対応。理由は
+ * {@link formatKeystrokeCount} と同じ）。
  */
 export function formatTotalTime(totalTimeMs: number): string {
+  if (!Number.isFinite(totalTimeMs)) {
+    return '0m';
+  }
   const totalMinutes = Math.floor(Math.max(0, totalTimeMs) / 60000);
   const hours = Math.floor(totalMinutes / 60);
   const minutes = totalMinutes % 60;
@@ -179,9 +195,18 @@ const LEVEL_STATE_LABEL: Record<LevelDisplayState, string> = {
   locked: 'ロック中',
 };
 
-function formatBestRecord(progress: LevelProgress): string {
+/**
+ * クリア済みレベルのベスト記録表示（例: 98% / 82 KPM）。
+ *
+ * レビュー指摘 major-1 対応: `bestKpm` は `correctCount / (durationMs / 60000)` の
+ * 除算生値（`appDataUpdates.ts` が `Math.max` で保存するのみで丸めない）のため、
+ * 実データではほぼ確実に小数になる。`bestAccuracy` 側と同じく `Math.round` で
+ * 整数に丸めてから表示する（`ResultScreen` の `formatKpm` と同じ丸め方に合わせる）。
+ */
+export function formatBestRecord(progress: LevelProgress): string {
   const accuracyPercent = Math.round(progress.bestAccuracy * 100);
-  return `${accuracyPercent}% / ${progress.bestKpm} KPM`;
+  const kpm = Math.round(progress.bestKpm);
+  return `${accuracyPercent}% / ${kpm} KPM`;
 }
 
 // ---------- コンポーネント本体 ----------
@@ -226,7 +251,11 @@ export function HomeScreen({ appData, onStart, onNavigate }: HomeScreenProps) {
     onStart(request);
   }
 
-  const weaknessStatus = getWeaknessStatus(appData.sessions);
+  // レビュー指摘 minor-2 対応: getWeaknessStatus は 'ready' 判定時に内部で
+  // computeWeakScores を 2 回（自身 1 回 + getTopWeakKeys 内で 1 回）実行するうえ、
+  // 元々は appData が更新されるたびに（無関係な再レンダーでも）毎回呼ばれていた。
+  // sessions 参照が変わらない限り再計算しないようメモ化する。
+  const weaknessStatus = useMemo(() => getWeaknessStatus(appData.sessions), [appData.sessions]);
 
   return (
     <div className="home">
