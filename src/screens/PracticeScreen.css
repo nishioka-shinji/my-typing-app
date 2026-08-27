@@ -1,0 +1,144 @@
+/*
+ * PracticeScreen 専用スタイル（DECISIONS §3: クラス名は .practice__ で prefix、
+ * theme.css のトークンのみ参照。theme.css 自体は変更しない）。
+ */
+
+.practice {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 20px;
+  /* フォーカスリングは出しつつ、ターミナル風の見た目を壊さないよう色をトークンで揃える */
+  outline: none;
+}
+
+.practice:focus-visible {
+  outline: 2px solid var(--cursor);
+  outline-offset: 4px;
+}
+
+.practice__header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+  font-family: var(--font-mono);
+}
+
+.practice__level-name {
+  color: var(--text);
+  font-weight: 600;
+  font-size: 18px;
+}
+
+.practice__progress {
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.practice__escape-hint {
+  /* --text-dim は本文サイズで 4.5:1 未達 (CROSS-CUTTING.md) のため --text を使う */
+  color: var(--text);
+  font-size: 14px;
+}
+
+.practice__banner {
+  margin: 0;
+  padding: 8px 12px;
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  /* --accent (#d29922) on --bg-elevated は 6.85:1 / --bg は 7.50:1 でいずれも
+     4.5:1 を上回る (t12 レビューで再計算済みの値を流用)。背景は敷かず文字色のみで
+     警告を表現し、コントラスト計算を単純に保つ。 */
+  color: var(--accent);
+  background-color: var(--bg-elevated);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.practice__drill {
+  min-height: 100px;
+  padding: 16px;
+  background-color: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  /* 長いコマンド（design.md の最長例で約 615px）でも横スクロールで現在位置が
+     見切れないよう、t12 レビューの推奨（640px 以上確保）に沿って余裕を持たせる */
+  min-width: 0;
+}
+
+.practice__overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: rgba(0, 0, 0, 0.6);
+  border-radius: 8px;
+  z-index: 10;
+}
+
+.practice__overlay-box {
+  padding: 16px 24px;
+  background-color: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.practice__dialog {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 360px;
+  padding: 20px 24px;
+  background-color: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-family: var(--font-mono);
+}
+
+.practice__dialog-message {
+  margin: 0;
+  color: var(--text);
+  font-size: 16px;
+  line-height: 1.6;
+}
+
+.practice__dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.practice__dialog-btn {
+  padding: 8px 16px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background-color: transparent;
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.practice__dialog-btn:focus-visible {
+  outline: 2px solid var(--cursor);
+  outline-offset: 2px;
+}
+
+.practice__dialog-btn--danger {
+  /* --error (#f85149) 背景に --bg の文字色で 5.65:1 (t11/t12 レビューで検証済みの値) */
+  background-color: var(--error);
+  border-color: var(--error);
+  color: var(--bg);
+  font-weight: 600;
+}
