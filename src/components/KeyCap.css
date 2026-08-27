@@ -2,6 +2,11 @@
  * KeyCap 単体の見た目 (docs/design.md §5.3 §3.4 §3.5 §10.3)。
  * theme.css の CSS 変数のみを参照する (00-decisions.md §3)。
  * クラス名は .keycap__ / .keycap-- でコンポーネント名を prefix して衝突を避ける。
+ *
+ * レビュー r1 の major-1 対応方針: 運指カラー（下端の border-bottom-color）は
+ * どの状態クラスからも一切上書きしない。next/shift/miss/alert の「状態らしさ」は
+ * background-color と box-shadow だけで表現し、border-color プロパティには
+ * 触れない。border-bottom は .keycap--finger だけが唯一書き込む場所にする。
  */
 
 .keycap {
@@ -10,7 +15,6 @@
   justify-content: center;
   min-width: 0;
   height: 40px;
-  margin: 2px;
   padding: 0 2px;
   border: 1px solid var(--border);
   border-radius: 4px;
@@ -21,10 +25,16 @@
   line-height: 1;
   user-select: none;
   cursor: default;
+  /* 幅比は KeyCap.tsx がインラインで渡す --keycap-width を使う。実際の
+     flex-grow/flex-basis は通常の CSS ルールとして宣言するため、Keyboard.css 側の
+     行固有セレクタ（スペース段など）が詳細度で上書きできる（インラインスタイル
+     そのものでは上書き不可能なため）。 */
+  flex-grow: var(--keycap-width, 1);
+  flex-basis: 0;
   /* 状態遷移そのものは短い transition のみ（design.md §10.3: 150ms 以内） */
   transition:
     background-color 100ms ease,
-    border-color 100ms ease,
+    color 100ms ease,
     box-shadow 100ms ease;
 }
 
@@ -37,34 +47,46 @@
 
 .keycap--special .keycap__label {
   font-size: 11px;
-  color: var(--text-dim);
+  /*
+   * 文字色はここでは指定しない。あえて指定しないことで、通常時は親 .keycap の
+   * color: var(--text) を継承し（bg-elevated に対し 11.21:1 で §4 の 4.5:1 要件を
+   * 満たす）、next/shift/miss/alert でキー全体の色が変わったときはその color も
+   * そのまま継承する。以前はここで var(--text-dim) を直接指定しており、
+   * ハイライト時の継承を阻害してコントラスト比 1.82:1 まで落ちていた
+   * （レビュー指摘 major-3）。Keyboard.css が --text-dim ではなく --text を
+   * 使っている判断とも整合させている。
+   */
 }
 
 /* 運指カラー: 下端のアクセントラインで色分けする（色だけに依存しないよう、
-   指名テキストは aria-label / title / Keyboard 側の凡例で必ず併記する: design.md §4） */
+   指名テキストは aria-label / title / Keyboard 側の凡例で必ず併記する: design.md §4）。
+   このプロパティは他のどの状態クラスからも上書きされない（major-1 対応）。 */
 .keycap--finger {
   border-bottom: 3px solid var(--keycap-finger-color, var(--border));
 }
 
-/* 次に押すキー（design.md §3.4 最重要機能） */
+/* 次に押すキー（design.md §3.4 最重要機能）。border-color には触れない。 */
 .keycap--next {
   background-color: var(--cursor);
-  border-color: var(--cursor);
   color: var(--bg);
   box-shadow: 0 0 0 2px var(--cursor);
 }
 
-/* Shift 同時ハイライト（対象キーと反対の手。design.md §3.4） */
+/* Shift 同時ハイライト（対象キーと反対の手。design.md §3.4）。border-color には触れない。 */
 .keycap--shift {
   background-color: var(--accent);
-  border-color: var(--accent);
   color: var(--bg);
   box-shadow: 0 0 0 2px var(--accent);
 }
 
-/* ミス: 赤フラッシュ 120ms（design.md §10.3） */
+/*
+ * ミス: 赤フラッシュ 120ms（design.md §10.3）。
+ * 静的な box-shadow はアニメーション終了後も「直近ミスしたキー」であることを
+ * 示す残効として残す（呼び出し側が missKeyId を null に戻すまで持続する）。
+ * border-color は使わないので運指カラーの border-bottom はそのまま見える。
+ */
 .keycap--miss {
-  border-color: var(--error);
+  box-shadow: 0 0 0 2px var(--error);
   animation: keycap-miss-flash 120ms ease-out;
 }
 
@@ -85,19 +107,41 @@
  * トランジションではなく infinite なループアニメーションにしている。
  * ただし design.md §10.3「アニメーションは 150ms 以内」の方針を尊重し、
  * 1 サイクルあたりの animation-duration は 150ms に抑えている。
+ * border-color は使わないので運指カラーの border-bottom はそのまま見える。
  */
 .keycap--alert {
-  border-color: var(--error);
   animation: keycap-alert-blink 150ms ease-in-out infinite alternate;
 }
 
 @keyframes keycap-alert-blink {
   0% {
     background-color: var(--bg-elevated);
+    color: var(--text);
     box-shadow: none;
   }
   100% {
+    /* ピーク時も文字色を var(--bg) に切り替える。#f85149 に対し
+       #c9d1d9 (var(--text)) のままだと 2.17:1 で §4 の 4.5:1 未達だった
+       （レビュー指摘 major-4）。var(--bg) なら 5.65:1 で要件を満たす。 */
     background-color: var(--error);
+    color: var(--bg);
+    box-shadow: 0 0 0 3px var(--error);
+  }
+}
+
+/* 点滅・明滅を好まない利用者への配慮（レビュー指摘 nit-2）。
+   点滅の代わりに静的な赤枠＋背景で強調する。 */
+@media (prefers-reduced-motion: reduce) {
+  .keycap--miss {
+    animation: none;
+    background-color: var(--error);
+    color: var(--bg);
+  }
+
+  .keycap--alert {
+    animation: none;
+    background-color: var(--error);
+    color: var(--bg);
     box-shadow: 0 0 0 3px var(--error);
   }
 }

@@ -27,15 +27,36 @@
  * 各行は KeyDef.width を flex-grow としてそのまま使う比率レイアウト。
  * 数字段・上段・ホーム段・下段はいずれも width 合計が 15 で揃っているため
  * (t06 レビュー申し送り事項)、行同士の見た目の横幅も自然に揃う。
+ * キー間の余白は margin ではなく gap で確保する。margin だと左右で二重に
+ * 加算され、行ごとのキー数差（14/14/13/12）で分配可能幅のずれが大きくなる
+ * （レビュー指摘 minor-2）。gap も行ごとのキー数差の影響は残るが、
+ * ずれ幅は margin 方式よりも小さくなる。
  */
 .keyboard__row {
   display: flex;
   width: 100%;
+  gap: 4px;
 }
 
-/* スペース段だけは 1 キーのみなのでセンタリングする */
+/*
+ * スペース段だけは 1 キーのみなのでセンタリングする。
+ * KeyCap 側は幅比を --keycap-width という CSS 変数経由の flex-grow/flex-basis
+ * （通常の CSS ルール）で受け取っているため、ここで固定幅に上書きできる
+ * （インラインスタイルだと詳細度の上下に関わらず上書き不可能だった。
+ * レビュー指摘 minor-1: 以前は KeyCap がインラインで flex-grow: 6.25 を
+ * 指定していたため、分配可能な余白が 0 になり justify-content: center が
+ * 効かず、Space キーが行いっぱいに伸びていた）。
+ */
 .keyboard__row--space {
   justify-content: center;
+}
+
+.keyboard__row--space .keycap {
+  flex-grow: 0;
+  flex-shrink: 0;
+  /* Space の KeyDef.width (6.25) を英数 4 行の width 合計 (15) に対する
+     比率として固定幅にする: 6.25 / 15 = 41.6667% */
+  flex-basis: 41.6667%;
 }
 
 .keyboard__legend {
