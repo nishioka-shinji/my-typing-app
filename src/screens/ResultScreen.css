@@ -1,0 +1,295 @@
+/*
+ * ResultScreen の見た目 (docs/design.md §5.4 §10.1 §10.3)。
+ * theme.css の CSS 変数のみを参照する (00-decisions.md §3)。
+ * クラス名は .resultscreen__ でコンポーネント名を prefix して衝突を避ける。
+ *
+ * アクセシビリティ (design.md §4: コントラスト比 4.5:1 以上):
+ * --text-dim (#6e7681) は --bg (#0d1117) 上で 4.12:1、--bg-elevated (#161b22) 上でも
+ * 3.77:1 しかなく基準を満たさないため、本画面では読ませる文字に --text-dim を
+ * 一切使わない（Keyboard.css の凡例と同じ判断）。基準値・時間・ミス回数などの
+ * 補助テキストもすべて --text（12.26:1 / 11.21:1）を使う。
+ * --text-done（緑）は --bg 上 7.45:1 / --bg-elevated 上 6.81:1、--error（赤）は
+ * --bg 上 5.65:1 / --bg-elevated 上 5.16:1 でいずれも基準を満たすことを確認済み
+ * （実色値で計算。詳細は report-r1.md 参照）。
+ */
+
+.resultscreen {
+  display: flex;
+  justify-content: center;
+  padding: 24px 16px;
+}
+
+.resultscreen__panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  max-width: 480px;
+  padding: 24px;
+  background-color: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  text-align: center;
+}
+
+.resultscreen__eyebrow {
+  margin: 0;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+}
+
+.resultscreen__level-title {
+  margin: 0;
+  color: var(--text);
+  font-size: 13px;
+}
+
+.resultscreen__badge {
+  display: flex;
+  justify-content: center;
+  padding: 8px 0 0;
+}
+
+.resultscreen__badge-text {
+  display: inline-block;
+  overflow: hidden;
+  white-space: nowrap;
+  width: 8ch;
+  font-size: 24px;
+  font-weight: 700;
+  border-right: 2px solid transparent;
+  /*
+   * "✓ PASSED" / "✗ FAILED" をタイプライター風に表示する演出 (design.md §10.3)。
+   * design.md §10.3 は「アニメーションは 150ms 以内」とする一方、タイプライター
+   * 演出そのものは設計書が明示的に長い演出として求めているため対象外とする
+   * （§10.3 のフィードバック表参照）。演出はこの span の CSS アニメーションのみで
+   * 完結し、ボタン等の操作性には一切影響しない（pointer-events やオーバーレイを
+   * 一切使っていないため、演出中でも下のボタンを押せる）。
+   */
+  animation:
+    resultscreen-typewriter 640ms steps(8, end) 1,
+    resultscreen-caret-blink 480ms steps(1, end) 3;
+}
+
+.resultscreen__badge--passed .resultscreen__badge-text {
+  color: var(--text-done);
+}
+
+.resultscreen__badge--failed .resultscreen__badge-text {
+  color: var(--error);
+}
+
+@keyframes resultscreen-typewriter {
+  from {
+    width: 0;
+  }
+  to {
+    width: 8ch;
+  }
+}
+
+@keyframes resultscreen-caret-blink {
+  0%,
+  100% {
+    border-right-color: currentColor;
+  }
+  50% {
+    border-right-color: transparent;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .resultscreen__badge-text {
+    width: 8ch;
+    animation: none;
+    border-right-color: transparent;
+  }
+}
+
+.resultscreen__unlock-message {
+  margin: 0;
+  color: var(--text-done);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.resultscreen__retry-note {
+  margin: 0;
+  color: var(--text);
+  font-size: 13px;
+}
+
+.resultscreen__weakness-note {
+  margin: 0;
+  color: var(--accent);
+  font-size: 12px;
+}
+
+.resultscreen__metrics {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 8px 0 0;
+  padding: 12px;
+  background-color: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.resultscreen__metric-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.resultscreen__metric-row dt {
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+  text-align: left;
+}
+
+.resultscreen__metric-row dd {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin: 0;
+  color: var(--text);
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+}
+
+.resultscreen__metric-baseline {
+  color: var(--text);
+  font-size: 12px;
+}
+
+.resultscreen__mark {
+  font-weight: 700;
+}
+
+.resultscreen__mark--ok {
+  color: var(--text-done);
+}
+
+.resultscreen__mark--ng {
+  color: var(--error);
+}
+
+.resultscreen__summary-line {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  margin: 0;
+  color: var(--text);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.resultscreen__miss-keys {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 4px;
+  text-align: left;
+}
+
+.resultscreen__miss-keys-title {
+  margin: 0;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.resultscreen__miss-keys-empty {
+  margin: 0;
+  color: var(--text);
+  font-size: 13px;
+}
+
+.resultscreen__miss-key-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.resultscreen__miss-key-item {
+  display: grid;
+  grid-template-columns: 1.5em 1fr 3.5em;
+  align-items: center;
+  gap: 8px;
+}
+
+.resultscreen__miss-key-label {
+  color: var(--text);
+  font-weight: 700;
+  text-align: center;
+}
+
+.resultscreen__miss-key-bar-track {
+  display: block;
+  height: 10px;
+  background-color: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.resultscreen__miss-key-bar-fill {
+  display: block;
+  height: 100%;
+  background-color: var(--error);
+  /* 棒の伸縮のみの短い transition (design.md §10.3: 150ms 以内) */
+  transition: width 150ms ease;
+}
+
+.resultscreen__miss-key-count {
+  color: var(--text);
+  font-size: 12px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.resultscreen__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.resultscreen__button {
+  padding: 10px 16px;
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 14px;
+  background-color: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+  transition:
+    background-color 100ms ease,
+    border-color 100ms ease;
+}
+
+.resultscreen__button:hover {
+  border-color: var(--cursor);
+}
+
+.resultscreen__button:focus-visible {
+  outline: 2px solid var(--cursor);
+  outline-offset: 2px;
+}
+
+.resultscreen__button--primary {
+  color: var(--bg);
+  background-color: var(--cursor);
+  border-color: var(--cursor);
+  font-weight: 700;
+}
