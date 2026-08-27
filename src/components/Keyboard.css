@@ -1,0 +1,70 @@
+/*
+ * Keyboard 全体のレイアウト (docs/design.md §5.3 §3.4 §3.5)。
+ * theme.css の CSS 変数のみを参照する (00-decisions.md §3)。
+ * クラス名は .keyboard__ でコンポーネント名を prefix して衝突を避ける。
+ */
+
+.keyboard {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  max-width: 920px;
+  margin: 0 auto;
+  padding: 12px;
+  background-color: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.keyboard__rows {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/*
+ * 各行は KeyDef.width を flex-grow としてそのまま使う比率レイアウト。
+ * 数字段・上段・ホーム段・下段はいずれも width 合計が 15 で揃っているため
+ * (t06 レビュー申し送り事項)、行同士の見た目の横幅も自然に揃う。
+ */
+.keyboard__row {
+  display: flex;
+  width: 100%;
+}
+
+/* スペース段だけは 1 キーのみなのでセンタリングする */
+.keyboard__row--space {
+  justify-content: center;
+}
+
+.keyboard__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  margin: 0;
+  padding: 8px 4px 0;
+  border-top: 1px solid var(--border);
+  list-style: none;
+}
+
+.keyboard__legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  /* var(--text) は var(--text-dim) よりコントラスト比が高いため、
+     アクセシビリティ要件（design.md §4: 4.5:1 以上）を満たすためこちらを使う */
+  color: var(--text);
+}
+
+.keyboard__legend-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.keyboard__legend-label {
+  white-space: nowrap;
+}

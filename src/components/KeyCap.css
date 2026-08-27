@@ -1,0 +1,103 @@
+/*
+ * KeyCap 単体の見た目 (docs/design.md §5.3 §3.4 §3.5 §10.3)。
+ * theme.css の CSS 変数のみを参照する (00-decisions.md §3)。
+ * クラス名は .keycap__ / .keycap-- でコンポーネント名を prefix して衝突を避ける。
+ */
+
+.keycap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  height: 40px;
+  margin: 2px;
+  padding: 0 2px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background-color: var(--bg-elevated);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 14px;
+  line-height: 1;
+  user-select: none;
+  cursor: default;
+  /* 状態遷移そのものは短い transition のみ（design.md §10.3: 150ms 以内） */
+  transition:
+    background-color 100ms ease,
+    border-color 100ms ease,
+    box-shadow 100ms ease;
+}
+
+.keycap__label {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  pointer-events: none;
+}
+
+.keycap--special .keycap__label {
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+/* 運指カラー: 下端のアクセントラインで色分けする（色だけに依存しないよう、
+   指名テキストは aria-label / title / Keyboard 側の凡例で必ず併記する: design.md §4） */
+.keycap--finger {
+  border-bottom: 3px solid var(--keycap-finger-color, var(--border));
+}
+
+/* 次に押すキー（design.md §3.4 最重要機能） */
+.keycap--next {
+  background-color: var(--cursor);
+  border-color: var(--cursor);
+  color: var(--bg);
+  box-shadow: 0 0 0 2px var(--cursor);
+}
+
+/* Shift 同時ハイライト（対象キーと反対の手。design.md §3.4） */
+.keycap--shift {
+  background-color: var(--accent);
+  border-color: var(--accent);
+  color: var(--bg);
+  box-shadow: 0 0 0 2px var(--accent);
+}
+
+/* ミス: 赤フラッシュ 120ms（design.md §10.3） */
+.keycap--miss {
+  border-color: var(--error);
+  animation: keycap-miss-flash 120ms ease-out;
+}
+
+@keyframes keycap-miss-flash {
+  0% {
+    background-color: var(--error);
+    color: var(--bg);
+  }
+  100% {
+    background-color: var(--bg-elevated);
+    color: var(--text);
+  }
+}
+
+/*
+ * 3 連続ミス: 該当キーを強調点滅させる（design.md §3.3 ヘルプ強制介入）。
+ * この状態は「ミスが解消されるまで」持続する継続的な警告表示のため、単発の
+ * トランジションではなく infinite なループアニメーションにしている。
+ * ただし design.md §10.3「アニメーションは 150ms 以内」の方針を尊重し、
+ * 1 サイクルあたりの animation-duration は 150ms に抑えている。
+ */
+.keycap--alert {
+  border-color: var(--error);
+  animation: keycap-alert-blink 150ms ease-in-out infinite alternate;
+}
+
+@keyframes keycap-alert-blink {
+  0% {
+    background-color: var(--bg-elevated);
+    box-shadow: none;
+  }
+  100% {
+    background-color: var(--error);
+    box-shadow: 0 0 0 3px var(--error);
+  }
+}
