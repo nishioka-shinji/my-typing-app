@@ -1,0 +1,36 @@
+/*
+ * StatsBar 専用スタイル（DECISIONS §3: クラス名は .statsbar__ で prefix）。
+ */
+
+.statsbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 24px;
+  font-family: var(--font-mono);
+  font-size: 16px;
+  color: var(--text);
+}
+
+.statsbar__item {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.statsbar__label {
+  /* --text-dim は --bg 上で 4.12:1 / --bg-elevated 上で 3.77:1 しかなく、
+     design.md §4 が求める 4.5:1 を満たさないため、ラベルには --text を使う。
+     value との視覚的な区別はフォントウェイトのみで行う（font-weight: 400 vs 600）。 */
+  color: var(--text);
+  font-weight: 400;
+}
+
+.statsbar__value {
+  /* 数値の桁揺れ（例: 9% -> 10%）でレイアウトが動かないよう固定幅・等幅にする */
+  display: inline-block;
+  min-width: 4ch;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+  font-weight: 600;
+}

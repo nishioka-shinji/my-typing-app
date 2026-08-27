@@ -1,0 +1,124 @@
+/*
+ * DrillText 専用スタイル（DECISIONS §3: コンポーネント同居 CSS、クラス名は
+ * .drilltext__ で prefix）。theme.css のトークンのみを参照し、色や書体を
+ * 直接定義しない。
+ */
+
+.drilltext {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px 0;
+}
+
+.drilltext__line {
+  /* design.md §10.2: 等幅フォント必須・32px。| と l、0 と O の判別を最優先する */
+  font-family: var(--font-mono);
+  font-size: var(--font-size-drill);
+  line-height: 1.4;
+  white-space: pre;
+  overflow-x: auto;
+  animation: drilltext-line-enter 150ms ease-out;
+}
+
+.drilltext__char {
+  display: inline-block;
+  color: var(--text);
+}
+
+.drilltext__char--pending {
+  color: var(--text);
+}
+
+/* 確定済み文字 = 緑（design.md §5.3 §10.1） */
+.drilltext__char--done {
+  color: var(--text-done);
+}
+
+/* 現在位置 = 点滅カーソル（design.md §5.3 §10.1）。
+   色（--cursor）に加えて下線の点滅というモーションでも示すため、
+   色覚特性に依存せず現在位置と確定済み/未入力を区別できる。 */
+.drilltext__char--current {
+  position: relative;
+  color: var(--cursor);
+}
+
+.drilltext__char--current::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -4px;
+  height: 2px;
+  background-color: var(--cursor);
+  animation: drilltext-blink 1s steps(1, end) infinite;
+}
+
+/*
+ * ミス時の赤フラッシュ（120ms, design.md §10.3）。
+ * CSS Animation は !important の付かない静的な color/background-color 宣言より
+ * 常に優先して適用されるため、drilltext__char--current の color 指定と
+ * カスケード上競合しても正しく赤で上書きされる（t11 レビュー指摘の再発防止）。
+ */
+.drilltext__char--flash {
+  animation: drilltext-flash 120ms ease-out;
+}
+
+/* ミス時の問題文全体シェイク（横 4px, design.md §10.3） */
+.drilltext__line--shake {
+  animation: drilltext-shake 150ms ease-in-out;
+}
+
+.drilltext__hint {
+  margin: 0;
+  /* コントラスト比 12.26:1 (--text on --bg) / 11.21:1 (--bg-elevated) を確保するため
+     --text-dim (4.12:1 / 3.77:1、要件の 4.5:1 未達) ではなく --text を使う */
+  color: var(--text);
+  font-size: 16px;
+}
+
+@keyframes drilltext-blink {
+  0%,
+  49% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes drilltext-flash {
+  0% {
+    background-color: var(--error);
+    color: var(--bg);
+  }
+  100% {
+    background-color: transparent;
+    color: inherit;
+  }
+}
+
+@keyframes drilltext-shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-4px);
+  }
+  75% {
+    transform: translateX(4px);
+  }
+}
+
+@keyframes drilltext-line-enter {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
