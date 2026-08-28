@@ -95,7 +95,21 @@
 - 設計書 §3.1 の例示（`ls -la`, `cd ../src`, `grep -rn "foo" .`, `chmod +x run.sh`, `git commit -m "fix: typo"`, `git rebase -i HEAD~3`, `git push origin HEAD`）は必ずプールに含める。
 
 ### 14. デプロイ・公開
-**本エピックのスコープ外。** 設計書 §13-5 の結論どおり、Vercel 等への配置は行わない。`npm run build` が通ることのみ担保する。
+**Cloudflare Workers & Pages に静的サイトとして公開する。**（2026-08-28 に方針変更。当初は
+設計書 §13-5 の結論どおり本エピックのスコープ外としていた）
+
+- 成立根拠: 外部通信（`fetch` / 外部 URL）・環境変数参照が一切なく、永続化は `localStorage` のみ。
+  ルータライブラリを使わず `App.tsx` の `useState<ScreenName>` による状態ルーティングのため、
+  URL が `/` から変化せず **SPA fallback（`_redirects` の `/* → /index.html`）は不要**。
+- Pages のビルド設定: Build command = `npm run build` / Build output directory = `dist` /
+  Root directory = 空欄。`npm run build` は `typecheck` を含むため型エラーもビルドで検出される。
+- **Node のバージョン固定にリポジトリ直下の `.node-version`（`24.19.0`）を使う。**
+  Cloudflare は `mise.toml` を読まないため、これが無いと既定の古い Node が使われ
+  Vite 8（Node 20.19+ を要求）のビルドが失敗する。`mise.toml` と値を揃えて維持すること。
+- サブパス配信（`example.com/typing/` 等）にする場合のみ `vite.config.ts` に `base` の指定が必要。
+  `*.pages.dev` のルート配信では不要。
+- バックエンドを持たないため、公開しても記録は各ブラウザの `localStorage` に留まり、
+  端末間で共有・同期されない点は変わらない。
 
 ---
 
