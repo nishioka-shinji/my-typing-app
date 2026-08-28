@@ -30,10 +30,14 @@
 - `startedAt` が `null` のまま（＝1打鍵もしていない）でセッションを終えた場合、KPM は 0 とし、ゼロ除算を発生させないこと。
 
 ### 13. 効果音
-**設定項目のみ用意し、音声再生ロジックは実装しない。**
-- `Settings.soundEnabled` はデータモデル・設定画面のトグルとして存在させる（初期値 `false`）。
-- 実際の再生処理は本エピックのスコープ外。トグルを ON にしても音は鳴らない。
-- 設定画面のラベルに「（未実装）」等の注記を添え、ユーザーが壊れていると誤認しないようにすること。
+**Web Audio API による音声合成で実装済み。音声ファイルは持たない。**
+- `Settings.soundEnabled` はデータモデル・設定画面のトグルとして存在する（初期値は `false` のまま）。
+- 鳴らす場面は**正解打鍵とミス打鍵の 2 種類のみ**。セッション合格・不合格音、レベル解放音は鳴らさない。
+- 音量調整 UI は無く、実装側の固定値（控えめな gain）で再生する。
+- 実装の詳細（AudioContext の module singleton / lazy 生成、音のキャラクター、テストの線引きなど）は
+  `.claude/epics/sound-effects/00-decisions.md` を参照。実装箇所は `src/engine/soundParams.ts`
+  （イベント種別→音パラメータの純粋関数）、`src/hooks/useSoundEffects.ts`（AudioContext 生成・再生）、
+  `src/screens/PracticeScreen.tsx`（打鍵ハンドラからの呼び出し）。
 
 ---
 
