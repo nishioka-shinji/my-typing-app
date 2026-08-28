@@ -222,6 +222,64 @@ describe('loadAppData', () => {
     expect(result.settings).not.toHaveProperty('evil');
   });
 
+  it('旧形式（廃止済み soundEnabled を含む）データを読み込んでも soundEnabled は残らず、他の設定・進捗・セッション履歴・totals は保持される', () => {
+    const original = {
+      schemaVersion: 1,
+      progress: {
+        ...createInitialAppData().progress,
+        1: { unlocked: true, cleared: true, bestKpm: 150, bestAccuracy: 0.98, playCount: 5 },
+      },
+      sessions: [fakeSession('legacy-a'), fakeSession('legacy-b')],
+      aggregateKeyStats: { a: { attempts: 10, misses: 2, totalLatencyMs: 500 } },
+      totals: {
+        totalKeystrokes: 1234,
+        totalTimeMs: 60000,
+        streakDays: 7,
+        lastPlayedDate: '2026-08-20',
+      },
+      settings: {
+        guideMode: 'always',
+        showKeyboard: false,
+        highlightNextKey: false,
+        // 廃止済みの旧キー。normalizeSettings が既知キーだけを拾う設計により無視される。
+        soundEnabled: true,
+        questionCount: 30,
+        levelLockEnabled: false,
+        showStats: false,
+      },
+    };
+    const { storage } = createMemoryStorage({ [STORAGE_KEY]: JSON.stringify(original) });
+
+    const result = loadAppData(storage);
+
+    // (a) soundEnabled は結果の settings に残らない。
+    expect(result.settings).not.toHaveProperty('soundEnabled');
+
+    // (b) soundEnabled 以外の設定値・進捗・セッション履歴・totals は入力どおり保持される。
+    expect(result.settings).toEqual({
+      guideMode: 'always',
+      showKeyboard: false,
+      highlightNextKey: false,
+      questionCount: 30,
+      levelLockEnabled: false,
+      showStats: false,
+    });
+    expect(result.progress[1]).toEqual({
+      unlocked: true,
+      cleared: true,
+      bestKpm: 150,
+      bestAccuracy: 0.98,
+      playCount: 5,
+    });
+    expect(result.sessions).toEqual([fakeSession('legacy-a'), fakeSession('legacy-b')]);
+    expect(result.totals).toEqual({
+      totalKeystrokes: 1234,
+      totalTimeMs: 60000,
+      streakDays: 7,
+      lastPlayedDate: '2026-08-20',
+    });
+  });
+
   it('totals に型不正な値や未知キーが混ざっていても該当フィールドのみ初期値へフォールバックする', () => {
     const original = {
       schemaVersion: 1,

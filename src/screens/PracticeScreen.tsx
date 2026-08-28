@@ -165,11 +165,10 @@ export function PracticeScreen({ request, settings, onFinish, onQuit }: Practice
   const [focused, setFocused] = useState(false);
   const [showQuitConfirm, setShowQuitConfirm] = useState(false);
 
-  // 正解打鍵・ミス打鍵の効果音。soundEnabled === false の間は AudioContext を
-  // 一切生成しない（フック内部の契約。00-decisions.md §1・§4・§5）。playSound は
+  // 正解打鍵・ミス打鍵の効果音（常時再生。docs/decisions.md §13）。playSound は
   // 参照が安定した useCallback（依存配列 []）のため、handleChar の依存配列に
   // 加えても handleChar 自体の再生成頻度は変わらない（t01 レビュー申し送り）。
-  const playSound = useSoundEffects(settings.soundEnabled);
+  const playSound = useSoundEffects();
 
   // マウント時にコンテナへフォーカスする。ペイント前に完了させ、フォーカス喪失
   // オーバーレイが 1 フレームだけ見えてしまう点滅を避けるため useLayoutEffect を使う。

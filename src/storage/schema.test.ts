@@ -48,10 +48,9 @@ describe('createInitialAppData', () => {
     });
   });
 
-  it('settings が DEFAULT_SETTINGS と一致する (soundEnabled false, questionCount 20, guideMode auto)', () => {
+  it('settings が DEFAULT_SETTINGS と一致する (questionCount 20, guideMode auto)', () => {
     const data = createInitialAppData();
     expect(data.settings).toEqual(DEFAULT_SETTINGS);
-    expect(data.settings.soundEnabled).toBe(false);
     expect(data.settings.questionCount).toBe(20);
     expect(data.settings.guideMode).toBe('auto');
   });
@@ -67,7 +66,7 @@ describe('createInitialAppData', () => {
     expect(a.totals).not.toBe(b.totals);
     expect(a.aggregateKeyStats).not.toBe(b.aggregateKeyStats);
 
-    a.settings.soundEnabled = true;
+    a.settings.showKeyboard = false;
     a.progress[1].cleared = true;
     a.sessions.push({
       id: 'x',
@@ -82,7 +81,7 @@ describe('createInitialAppData', () => {
       keyStats: {},
     });
 
-    expect(b.settings.soundEnabled).toBe(false);
+    expect(b.settings.showKeyboard).toBe(true);
     expect(b.progress[1].cleared).toBe(false);
     expect(b.sessions).toEqual([]);
   });

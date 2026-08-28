@@ -1,9 +1,9 @@
 /**
  * 設定画面。
  *
- * design.md §3.8 の設定項目 8 種（運指ガイド表示・画面内キーボード・次キーハイライト・
- * 効果音・1 セッションの問題数・レベルロック・統計グラフ表示・全データリセット）を
- * 編集できる UI を提供する。
+ * design.md §3.8 の設定項目 7 種（運指ガイド表示・画面内キーボード・次キーハイライト・
+ * 1 セッションの問題数・レベルロック・統計グラフ表示・全データリセット）を
+ * 編集できる UI を提供する。効果音は常時再生でありトグルは無い (docs/decisions.md §13)。
  *
  * この画面自身は storage も画面遷移も一切扱わない props 駆動コンポーネント。
  * 永続化は親（t18 が useAppData（t10）と結線する）に委ねる。
@@ -16,7 +16,6 @@
  * 参照元:
  *   - docs/design.md §3.8（設定項目一覧）/ §4（アクセシビリティ）
  *   - .claude/epics/typing-app/00-decisions.md §6（guideMode 'auto'）
- *   - .claude/epics/sound-effects/00-decisions.md（効果音: Web Audio API 合成 / 音量 UI なし固定値）
  *   - .claude/epics/typing-app/CROSS-CUTTING.md §1（--text-dim はコントラスト基準未満）/
  *     §4（saveStatus の通知は t14 の責務）
  */
@@ -209,15 +208,6 @@ export function SettingsScreen({ settings, onChange, onResetAll, onBack, saveSta
           label="次に押すキーをハイライトする"
           checked={settings.highlightNextKey}
           onChange={(checked) => onChange({ highlightNextKey: checked })}
-        />
-      </section>
-
-      <section className="settingsscreen__section">
-        <h2 className="settingsscreen__section-title">効果音</h2>
-        <ToggleField
-          label="効果音を鳴らす（正解打鍵とミス打鍵で短い音が鳴ります）"
-          checked={settings.soundEnabled}
-          onChange={(checked) => onChange({ soundEnabled: checked })}
         />
       </section>
 
