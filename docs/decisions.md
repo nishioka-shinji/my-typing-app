@@ -29,15 +29,28 @@
 - 理由: 問題文を読む準備時間を KPM の分母から除外し、Lv7/Lv8 の長いコマンドで不利にならないようにする。
 - `startedAt` が `null` のまま（＝1打鍵もしていない）でセッションを終えた場合、KPM は 0 とし、ゼロ除算を発生させないこと。
 
-### 13. 効果音
-**Web Audio API による音声合成で実装済み。音声ファイルは持たない。**
-- `Settings.soundEnabled` はデータモデル・設定画面のトグルとして存在する（初期値は `false` のまま）。
-- 鳴らす場面は**正解打鍵とミス打鍵の 2 種類のみ**。セッション合格・不合格音、レベル解放音は鳴らさない。
-- 音量調整 UI は無く、実装側の固定値（控えめな gain）で再生する。
-- 実装の詳細（AudioContext の module singleton / lazy 生成、音のキャラクター、テストの線引きなど）は
-  `.claude/epics/sound-effects/00-decisions.md` を参照。実装箇所は `src/engine/soundParams.ts`
-  （イベント種別→音パラメータの純粋関数）、`src/hooks/useSoundEffects.ts`（AudioContext 生成・再生）、
-  `src/screens/PracticeScreen.tsx`（打鍵ハンドラからの呼び出し）。
+### 13. 効果音（2026-08-28 更新: always-on-sound エピックによりトグル廃止・常時再生に変更）
+**Web Audio API による音声合成で実装済み。音声ファイルは持たない。効果音は常に鳴り、ON/OFF の選択肢は無い。**
+- `Settings.soundEnabled` は**データモデルから削除済み**。設定画面にも効果音のトグルは存在しない。
+- 鳴らす場面は**正解打鍵とミス打鍵の 2 種類のみ**（変更なし）。セッション合格・不合格音、レベル解放音は鳴らさない。
+- 音量調整 UI は無く、実装側の固定値（控えめな gain）で再生する（変更なし）。
+- 実装箇所: `src/engine/soundParams.ts`（イベント種別→音パラメータの純粋関数、変更なし）、
+  `src/hooks/useSoundEffects.ts`（AudioContext 生成・再生。`useSoundEffects()` は**引数を取らず**
+  `(kind: SoundKind) => void` を返す。ON/OFF 判定が無くなっただけで、AudioContext の module singleton /
+  lazy 生成という仕組み自体は変わらない）、`src/screens/PracticeScreen.tsx`（打鍵ハンドラからの呼び出し）。
+
+**廃止の理由**: Cloudflare Pages への公開後、「効果音が鳴らない」という体験が生じた。原因はバグではなく、
+(1) `Settings.soundEnabled` の初期値が `false` だったことと、(2) `localStorage` はオリジン単位で保存されるため、
+ローカル開発環境（`localhost`）で ON にしていた設定がデプロイ先（`*.pages.dev`）には引き継がれず、
+初期値 `false` のまま再生されなかったこと、の組み合わせによる。バグではなかったが、ユーザー判断でトグル自体を
+廃止し、常時再生に変更することで根本解消した（決定日 2026-08-28）。
+
+**既知の懸念**: アプリ内のミュート手段が完全に無くなる。職場・図書館・カフェ等の静かな環境で使う場合、
+ブラウザのタブミュート等、アプリ外の手段に頼るしかない。将来 UI でのミュート機能を再検討する場合はこの節を参照すること。
+
+過去の決定記録として `.claude/epics/sound-effects/00-decisions.md`（AudioContext の module singleton /
+lazy 生成、音のキャラクター、テストの線引きなどの実装詳細）も参照できるが、`soundEnabled` に関する記述は
+本節（2026-08-28 更新分）で上書きされている。
 
 ---
 
