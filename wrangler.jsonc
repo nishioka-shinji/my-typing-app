@@ -1,0 +1,10 @@
+{
+  // Cloudflare Workers (Static Assets) でこの Vite アプリを配信する。
+  // name は Cloudflare ダッシュボードのプロジェクト名と一致させること（不一致だとビルドが失敗する）。
+  "name": "my-typing-app",
+  "compatibility_date": "2026-08-28",
+  // main（Worker スクリプト）は持たない = 静的アセットのみを配信する Worker。
+  "assets": {
+    "directory": "./dist"
+  }
+}
