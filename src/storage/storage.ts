@@ -115,8 +115,6 @@ function normalizeSettings(candidate: unknown): Settings {
       typeof candidate.highlightNextKey === 'boolean'
         ? candidate.highlightNextKey
         : DEFAULT_SETTINGS.highlightNextKey,
-    soundEnabled:
-      typeof candidate.soundEnabled === 'boolean' ? candidate.soundEnabled : DEFAULT_SETTINGS.soundEnabled,
     questionCount: VALID_QUESTION_COUNTS.includes(candidate.questionCount as Settings['questionCount'])
       ? (candidate.questionCount as Settings['questionCount'])
       : DEFAULT_SETTINGS.questionCount,
