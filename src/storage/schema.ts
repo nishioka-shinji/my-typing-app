@@ -8,7 +8,8 @@
  * 参照元:
  *   - docs/design.md §6（データモデル）/ §7.2（ディレクトリ構成）/ §10.1（カラートークン）
  *   - .claude/epics/typing-app/00-decisions.md §6（guideMode 'auto'）/ §9（startedAt）/
- *     §10（lastKeyAt）/ §13（soundEnabled）
+ *     §10（lastKeyAt）
+ *   - docs/decisions.md §13（効果音は常時再生・トグルなし。旧 sound トグル設定は廃止）
  */
 
 // ---------- カリキュラム定義（静的データ） ----------
@@ -118,8 +119,6 @@ export interface Settings {
   guideMode: GuideMode | 'auto';
   showKeyboard: boolean;
   highlightNextKey: boolean;
-  /** トグルのみで再生ロジックは未実装 (DECISIONS §13) */
-  soundEnabled: boolean;
   questionCount: 10 | 20 | 30;
   levelLockEnabled: boolean;
   showStats: boolean;
@@ -194,7 +193,6 @@ export const DEFAULT_SETTINGS: Settings = {
   guideMode: 'auto',
   showKeyboard: true,
   highlightNextKey: true,
-  soundEnabled: false,
   questionCount: 20,
   levelLockEnabled: true,
   showStats: true,
