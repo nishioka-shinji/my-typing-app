@@ -1,0 +1,59 @@
+/*
+ * App 全体の共通レイアウトのみ（DECISIONS §3）。
+ * 各画面（HomeScreen 等）は自身の同居 .css で中央寄せ・最大幅を持つため、
+ * ここでは「画面の外側の器」と「全画面共通バナー」の見た目だけを書く。
+ * theme.css のトークンのみを参照し、コンポーネント固有のスタイルは書かない。
+ * クラス名は .app__ で prefix する（DECISIONS §3）。
+ */
+
+.app {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+/*
+ * 保存状態の全画面共通バナー（CROSS-CUTTING §5 §7）。
+ * role="status" 相当の見た目。t14 設定画面の role="alert" パネルとは色を揃えつつ
+ * 表示位置と目的を分ける（バナー = 短い通知＋導線、パネル = 詳細説明）。
+ * --accent（degraded 相当の警告色）は --bg-elevated 上 6.85:1、--error は 5.16:1
+ * （SettingsScreen.css 実測値を流用。同じトークンの組み合わせのため再計算不要）。
+ */
+.app__save-banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 10px 16px;
+  background-color: var(--bg-elevated);
+  border-bottom: 1px solid var(--accent);
+  color: var(--text);
+  font-size: 14px;
+}
+
+.app__save-banner-text {
+  flex: 1;
+  max-width: 720px;
+  text-align: center;
+}
+
+.app__save-banner-dismiss {
+  flex-shrink: 0;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text);
+  padding: 4px 10px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 13px;
+}
+
+.app__save-banner-dismiss:hover {
+  border-color: var(--accent);
+}
+
+.app__save-banner-dismiss:focus-visible {
+  outline: 2px solid var(--cursor);
+  outline-offset: 2px;
+}
