@@ -95,19 +95,26 @@
 - 設計書 §3.1 の例示（`ls -la`, `cd ../src`, `grep -rn "foo" .`, `chmod +x run.sh`, `git commit -m "fix: typo"`, `git rebase -i HEAD~3`, `git push origin HEAD`）は必ずプールに含める。
 
 ### 14. デプロイ・公開
-**Cloudflare Workers & Pages に静的サイトとして公開する。**（2026-08-28 に方針変更。当初は
-設計書 §13-5 の結論どおり本エピックのスコープ外としていた）
+**Cloudflare Workers（Static Assets）に静的サイトとして公開する。**（2026-08-28 に方針変更。当初は
+設計書 §13-5 の結論どおり本エピックのスコープ外としていた。同日、Pages ではなく Workers を使う
+形に再修正した — Cloudflare は新規プロジェクトを Workers に一本化しており、ダッシュボードの
+作成フローも Workers Builds に統合されているため）
 
 - 成立根拠: 外部通信（`fetch` / 外部 URL）・環境変数参照が一切なく、永続化は `localStorage` のみ。
   ルータライブラリを使わず `App.tsx` の `useState<ScreenName>` による状態ルーティングのため、
-  URL が `/` から変化せず **SPA fallback（`_redirects` の `/* → /index.html`）は不要**。
-- Pages のビルド設定: Build command = `npm run build` / Build output directory = `dist` /
-  Root directory = 空欄。`npm run build` は `typecheck` を含むため型エラーもビルドで検出される。
+  URL が `/` から変化せず **SPA fallback（`assets.not_found_handling` の設定）は不要**。
+- **リポジトリ直下の `wrangler.jsonc` が唯一のデプロイ設定。** `main`（Worker スクリプト）を持たない
+  アセット専用 Worker として `assets.directory: "./dist"` のみを指定する。
+  **`name`（`my-typing-app`）は Cloudflare ダッシュボードのプロジェクト名と一致していなければ
+  ビルドが失敗する。**
+- Workers Builds の設定: Build command = `npm run build` / Deploy command = `npx wrangler deploy` /
+  非本番ブランチの Deploy command = `npx wrangler versions upload`（空ならこの既定値）/
+  Root directory（パス）= `/`。`npm run build` は `typecheck` を含むため型エラーもビルドで検出される。
 - **Node のバージョン固定にリポジトリ直下の `.node-version`（`24.19.0`）を使う。**
   Cloudflare は `mise.toml` を読まないため、これが無いと既定の古い Node が使われ
   Vite 8（Node 20.19+ を要求）のビルドが失敗する。`mise.toml` と値を揃えて維持すること。
 - サブパス配信（`example.com/typing/` 等）にする場合のみ `vite.config.ts` に `base` の指定が必要。
-  `*.pages.dev` のルート配信では不要。
+  `*.workers.dev` のルート配信では不要。
 - バックエンドを持たないため、公開しても記録は各ブラウザの `localStorage` に留まり、
   端末間で共有・同期されない点は変わらない。
 
