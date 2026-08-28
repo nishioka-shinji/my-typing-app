@@ -17,8 +17,11 @@
  *     dispatch しないため、mount 中は TypingState.missCount が単調増加のまま
  *     保たれ、この契約を自然に満たす。RESET が必要になった場合は DrillText を
  *     アンマウントする（= PracticeScreen ごと key を変えて作り直す）側の責務とする）
+ *   - t01(sound-effects) useSoundEffects（playSound(kind) を handleChar から呼ぶだけ。
+ *     AudioContext の生成・破棄は関知しない）
  *
- * 参照元: docs/design.md §3.3 §3.4 §5.3 §9 §4 §10.3 §7.3 / 00-decisions.md §6 §9 §10
+ * 参照元: docs/design.md §3.3 §3.4 §5.3 §9 §4 §10.3 §7.3 / 00-decisions.md §6 §9 §10 /
+ *   .claude/epics/sound-effects/00-decisions.md §1
  *
  * r1 レビュー（review-r1.md）指摘への対応（r2）:
  *   - minor-1: 中断ダイアログの開閉（showQuitConfirm の変化）のたびに画面側の
@@ -47,6 +50,7 @@ import { calcAccuracy, calcDurationMs, calcKpm, summarizeSession } from '../engi
 import { resolveGuideMode, shouldShowGuide } from '../engine/guideMode';
 import { findKeyForChar } from '../data/keyboardUs';
 import { useKeyboardInput } from '../hooks/useKeyboardInput';
+import { useSoundEffects } from '../hooks/useSoundEffects';
 import { Keyboard } from '../components/Keyboard';
 import { DrillText } from '../components/DrillText';
 import { StatsBar } from '../components/StatsBar';
@@ -161,6 +165,12 @@ export function PracticeScreen({ request, settings, onFinish, onQuit }: Practice
   const [focused, setFocused] = useState(false);
   const [showQuitConfirm, setShowQuitConfirm] = useState(false);
 
+  // 正解打鍵・ミス打鍵の効果音。soundEnabled === false の間は AudioContext を
+  // 一切生成しない（フック内部の契約。00-decisions.md §1・§4・§5）。playSound は
+  // 参照が安定した useCallback（依存配列 []）のため、handleChar の依存配列に
+  // 加えても handleChar 自体の再生成頻度は変わらない（t01 レビュー申し送り）。
+  const playSound = useSoundEffects(settings.soundEnabled);
+
   // マウント時にコンテナへフォーカスする。ペイント前に完了させ、フォーカス喪失
   // オーバーレイが 1 フレームだけ見えてしまう点滅を避けるため useLayoutEffect を使う。
   useLayoutEffect(() => {
@@ -214,6 +224,7 @@ export function PracticeScreen({ request, settings, onFinish, onQuit }: Practice
       // （大文字小文字の扱い等）を将来変更する場合は、ここも同時に直さないと
       // 「カーソルは進む/進まないが赤フラッシュだけ挙動がずれる」不整合が起きる。
       if (expected !== undefined && char !== expected) {
+        playSound('miss');
         const keyId = findKeyForChar(char)?.key.id ?? null;
         setMissKeyId(keyId);
         if (missTimerRef.current !== null) {
@@ -223,9 +234,11 @@ export function PracticeScreen({ request, settings, onFinish, onQuit }: Practice
           setMissKeyId(null);
           missTimerRef.current = null;
         }, MISS_FLASH_MS);
+      } else if (expected !== undefined && char === expected) {
+        playSound('correct');
       }
     },
-    [state.items, state.currentIndex, state.cursor],
+    [state.items, state.currentIndex, state.cursor, playSound],
   );
 
   const handleEscape = useCallback(() => {
