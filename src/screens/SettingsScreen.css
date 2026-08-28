@@ -1,0 +1,221 @@
+/*
+ * 設定画面のレイアウト (docs/design.md §3.8 §4)。
+ * theme.css の CSS 変数のみを参照する (00-decisions.md §3)。
+ * クラス名は .settingsscreen__ でこの画面を prefix して他画面と衝突を避ける。
+ *
+ * コントラスト比（theme.css の実色値で算出。CROSS-CUTTING.md §1 の指摘を踏まえ、
+ * 本文サイズのテキストには --text-dim を使わず --text / --text-done / --accent /
+ * --error のみを使用する）:
+ *   - var(--text) on var(--bg-elevated): 11.21:1
+ *   - var(--text-done) on var(--bg-elevated): 6.81:1（保存状態 ok）
+ *   - var(--accent) on var(--bg-elevated): 6.85:1（保存状態 degraded の警告）
+ *   - var(--error) on var(--bg-elevated): 5.16:1（保存状態 failed のエラー、削除系ボタン）
+ *   - var(--cursor) はフォーカスリング用（テキストではないため 3:1 基準。6.85:1 で余裕あり）
+ * いずれも design.md §4 の 4.5:1 以上を満たす。
+ */
+
+.settingsscreen {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 16px;
+}
+
+.settingsscreen__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.settingsscreen__title {
+  margin: 0;
+  font-size: 20px;
+}
+
+.settingsscreen__back,
+.settingsscreen__reset-button,
+.settingsscreen__confirm-cancel,
+.settingsscreen__confirm-ok {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  padding: 8px 14px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background-color: transparent;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.settingsscreen__back:hover,
+.settingsscreen__reset-button:hover,
+.settingsscreen__confirm-cancel:hover {
+  border-color: var(--cursor);
+}
+
+/*
+ * キーボード操作で全項目を操作できることが要件 (design.md §4)。フォーカスリングを
+ * ブラウザ既定に任せず var(--cursor) で明示し、ダーク背景でも視認できるようにする。
+ */
+.settingsscreen__back:focus-visible,
+.settingsscreen__reset-button:focus-visible,
+.settingsscreen__confirm-cancel:focus-visible,
+.settingsscreen__confirm-ok:focus-visible,
+.settingsscreen__select:focus-visible,
+.settingsscreen__checkbox:focus-visible {
+  outline: 2px solid var(--cursor);
+  outline-offset: 2px;
+}
+
+.settingsscreen__section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px 16px;
+  background-color: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.settingsscreen__section-title {
+  margin: 0;
+  font-size: 15px;
+  color: var(--text);
+}
+
+.settingsscreen__field {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+}
+
+.settingsscreen__field--toggle {
+  justify-content: space-between;
+}
+
+.settingsscreen__label {
+  color: var(--text);
+  font-size: 14px;
+}
+
+.settingsscreen__select {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 14px;
+  padding: 6px 8px;
+  background-color: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+
+.settingsscreen__checkbox {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  accent-color: var(--cursor);
+}
+
+/*
+ * ON/OFF は色だけでなくテキストでも伝える (design.md §4)。色は補助情報として
+ * ON を --text-done（緑）、OFF を --text（既定色）に分けているが、テキスト自体が
+ * 主要な伝達手段。
+ */
+.settingsscreen__state {
+  margin-left: 8px;
+  min-width: 32px;
+  text-align: right;
+  font-size: 12px;
+  font-weight: bold;
+  letter-spacing: 0.05em;
+}
+
+.settingsscreen__state--on {
+  color: var(--text-done);
+}
+
+.settingsscreen__state--off {
+  color: var(--text);
+}
+
+.settingsscreen__hint {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text);
+}
+
+.settingsscreen__section--danger {
+  border-color: var(--error);
+}
+
+.settingsscreen__savestatus {
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: 6px;
+  font-size: 13px;
+  background-color: var(--bg);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.settingsscreen__savestatus-label {
+  font-weight: bold;
+}
+
+.settingsscreen__savestatus--ok {
+  color: var(--text-done);
+}
+
+.settingsscreen__savestatus--warning {
+  color: var(--accent);
+}
+
+.settingsscreen__savestatus--error {
+  color: var(--error);
+}
+
+.settingsscreen__reset-button {
+  align-self: flex-start;
+  border-color: var(--error);
+  color: var(--error);
+}
+
+.settingsscreen__confirm {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  background-color: var(--bg);
+  border: 1px solid var(--error);
+  border-radius: 6px;
+}
+
+.settingsscreen__confirm-title {
+  margin: 0;
+  font-weight: bold;
+  color: var(--text);
+}
+
+.settingsscreen__confirm-body {
+  margin: 0;
+  color: var(--text);
+  font-size: 13px;
+}
+
+.settingsscreen__confirm-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.settingsscreen__confirm-ok {
+  border-color: var(--error);
+  background-color: var(--error);
+  color: var(--bg);
+  font-weight: bold;
+}
