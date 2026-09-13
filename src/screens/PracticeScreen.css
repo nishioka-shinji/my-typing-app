@@ -8,6 +8,9 @@
   display: flex;
   flex-direction: column;
   gap: 16px;
+  /* width 指定が無いと margin auto により shrink-to-fit になり、運指ガイド凡例の
+     有無で画面幅ごとキーボードの実寸が変わってしまう（他画面と同じ指定に揃える） */
+  width: 100%;
   max-width: 960px;
   margin: 0 auto;
   padding: 20px;
